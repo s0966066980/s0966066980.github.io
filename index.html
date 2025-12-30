@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>今天吃什麼？v4.0 (轉盤+口袋名單)</title>
+    <title>今天吃什麼？(Google Maps 豪華版)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -20,7 +20,7 @@
         }
         .loader {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #F97316;
+            border-top: 4px solid #4285F4;
             border-radius: 50%;
             width: 30px;
             height: 30px;
@@ -36,48 +36,33 @@
         .card-anim:active {
             transform: scale(0.98);
         }
-        /* Range Slider */
-        input[type=range] {
-            -webkit-appearance: none;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #F97316;
-            cursor: pointer;
-            margin-top: -8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #ddd;
-            border-radius: 2px;
-        }
+        /* Hide scrollbar */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         
         /* Wheel Styling */
         #wheel-canvas {
             transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); 
-            /* We will handle rotation via JS mostly, but CSS transition is a backup */
         }
         .arrow-down {
-            width: 0; 
-            height: 0; 
+            width: 0; height: 0; 
             border-left: 15px solid transparent;
             border-right: 15px solid transparent;
-            border-top: 25px solid #DC2626; /* Red arrow */
-            position: absolute;
-            top: -5px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 20;
+            border-top: 25px solid #DC2626;
+            position: absolute; top: -5px; left: 50%;
+            transform: translateX(-50%); z-index: 20;
             filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+        }
+        /* Google Map container in modal */
+        #mini-map {
+            width: 100%;
+            height: 200px;
+            background-color: #eee;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .photo-thumb {
+            width: 80px; height: 80px; object-fit: cover; border-radius: 8px;
         }
     </style>
 </head>
@@ -86,16 +71,16 @@
     <!-- Header -->
     <header class="bg-white shadow-sm z-10 px-4 py-3 flex justify-between items-center">
         <div>
-            <h1 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-utensils text-orange-500 mr-2"></i>今天吃什麼</h1>
+            <h1 class="text-xl font-bold text-gray-800"><i class="fa-brands fa-google text-blue-500 mr-2"></i>今天吃什麼</h1>
             <p class="text-xs text-gray-500">Hi 晨晨，<span id="date-display"></span></p>
         </div>
         <div class="flex gap-3">
+             <button onclick="openApiKeySettings()" class="bg-gray-100 p-2 rounded-full text-gray-600 hover:bg-gray-200 transition relative">
+                <i class="fa-solid fa-key"></i>
+            </button>
             <button onclick="openHistory()" class="bg-gray-100 p-2 rounded-full text-gray-600 hover:bg-gray-200 transition relative">
                 <i class="fa-solid fa-clock-rotate-left"></i>
             </button>
-            <div id="status-badge" class="hidden px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-600 flex items-center">
-                定位中...
-            </div>
         </div>
     </header>
 
@@ -104,16 +89,16 @@
         <div class="px-4 py-2" id="range-container">
             <div class="flex justify-between text-xs text-gray-500 mb-1">
                 <span>搜尋範圍</span>
-                <span id="range-value" class="font-bold text-orange-600">500 公尺</span>
+                <span id="range-value" class="font-bold text-blue-600">500 公尺</span>
             </div>
-            <input type="range" id="distance-range" min="100" max="1000" step="100" value="500" class="w-full">
+            <input type="range" id="distance-range" min="100" max="2000" step="100" value="500" class="w-full accent-blue-500">
         </div>
 
         <div class="px-4 flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide pb-2">
-            <button onclick="setMode('all')" id="btn-all" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-orange-500 text-white shadow-md transition">
+            <button onclick="setMode('restaurant')" id="btn-restaurant" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-blue-500 text-white shadow-md transition">
                 附近美食
             </button>
-            <button onclick="setMode('date')" id="btn-date" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+            <button onclick="setMode('cafe')" id="btn-cafe" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
                 💕 棠棠約會
             </button>
             <button onclick="askCustomSearch()" id="btn-custom" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition border border-gray-200">
@@ -126,28 +111,30 @@
         
         <!-- Keyword Display -->
         <div id="keyword-badge" class="hidden px-4 py-1">
-            <span class="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-1 rounded-md">
-                搜尋中：<span id="current-keyword-text"></span>
-                <button onclick="setMode('all')" class="ml-2 text-orange-400 hover:text-orange-700"><i class="fa-solid fa-xmark"></i></button>
+            <span class="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-md">
+                搜尋：<span id="current-keyword-text"></span>
+                <button onclick="setMode('restaurant')" class="ml-2 text-blue-400 hover:text-blue-700"><i class="fa-solid fa-xmark"></i></button>
             </span>
         </div>
     </div>
 
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto p-4 relative" id="main-container">
+        
         <!-- Start Screen -->
         <div id="start-screen" class="flex flex-col items-center justify-center h-full text-center space-y-6 pt-10">
             <div class="relative">
-                <div class="w-32 h-32 bg-orange-100 rounded-full flex items-center justify-center animate-bounce">
-                    <i class="fa-solid fa-location-dot text-5xl text-orange-500"></i>
+                <div class="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center animate-bounce">
+                    <i class="fa-solid fa-map-location-dot text-5xl text-blue-500"></i>
                 </div>
-                <div class="absolute top-0 left-0 w-32 h-32 bg-orange-400 rounded-full opacity-20 animate-ping"></div>
+                <div class="absolute top-0 left-0 w-32 h-32 bg-blue-400 rounded-full opacity-20 animate-ping"></div>
             </div>
             <div>
-                <h2 class="text-xl font-bold text-gray-800">搜尋附近的美味</h2>
-                <p class="text-gray-500 mt-2 text-sm px-8">點擊開始，找出周圍 <span id="start-range-text">500</span> 公尺內的好料</p>
+                <h2 class="text-xl font-bold text-gray-800">Google 美食雷達</h2>
+                <p class="text-gray-500 mt-2 text-sm px-8">請先設定 API Key，然後找出周圍 <span id="start-range-text">500</span> 公尺內的評價好店</p>
+                <p id="api-status" class="text-xs text-red-500 mt-2 font-bold hidden">尚未設定 API Key</p>
             </div>
-            <button onclick="getLocation()" class="bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3 px-10 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95 flex items-center text-lg">
+            <button onclick="getLocation()" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold py-3 px-10 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95 flex items-center text-lg">
                 <i class="fa-solid fa-magnifying-glass-location mr-2"></i> 開始搜尋
             </button>
         </div>
@@ -155,14 +142,14 @@
         <!-- Loading -->
         <div id="loading-screen" class="hidden flex flex-col items-center justify-center h-full pt-20">
             <div class="loader mb-4"></div>
-            <p class="text-gray-600 font-medium">正在掃描周圍店家...</p>
-            <p class="text-gray-400 text-xs mt-2">範圍：<span id="loading-range-text"></span> 公尺</p>
+            <p class="text-gray-600 font-medium">Google 正在幫你掃描...</p>
+            <p class="text-gray-400 text-xs mt-2">正在讀取評價與照片</p>
         </div>
 
         <!-- Results -->
         <div id="results-list" class="hidden pb-24 space-y-3"></div>
 
-        <!-- Add Button for Pocket Mode -->
+        <!-- Pocket Add Button -->
         <div id="pocket-add-btn" class="hidden fixed bottom-24 right-6 z-20">
             <button onclick="addToPocket()" class="bg-yellow-500 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-xl hover:bg-yellow-600 transition">
                 <i class="fa-solid fa-plus"></i>
@@ -182,7 +169,6 @@
         <div class="relative w-80 h-80 mb-8">
             <div class="arrow-down"></div>
             <canvas id="wheel-canvas" width="320" height="320" class="w-full h-full drop-shadow-2xl"></canvas>
-            <!-- Center dot -->
             <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-md z-10 flex items-center justify-center border-2 border-gray-200">
                 <div class="w-3 h-3 bg-orange-500 rounded-full"></div>
             </div>
@@ -191,26 +177,32 @@
         <button onclick="closeWheel()" class="mt-8 text-gray-400 text-sm hover:text-white underline">取消</button>
     </div>
 
-    <!-- Result Modal -->
+    <!-- Result Modal (With Map) -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-60 z-[60] hidden flex items-center justify-center p-4 transition-opacity duration-300">
-        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl transform transition-all scale-95 opacity-0" id="modal-content">
-            <div class="text-center relative">
-                <button onclick="closeModal()" class="absolute -top-2 -right-2 text-gray-400 p-2"><i class="fa-solid fa-xmark"></i></button>
-                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fa-solid fa-check text-2xl text-green-600"></i>
-                </div>
-                <h3 class="text-lg font-bold text-gray-400 mb-1">命運的選擇！</h3>
-                <h2 id="modal-shop-name" class="text-2xl font-black text-gray-800 mb-2 leading-tight">店家名稱</h2>
-                <p id="modal-shop-type" class="text-sm text-gray-500 mb-4 bg-gray-100 inline-block px-3 py-1 rounded-full">類型</p>
+        <div class="bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl transform transition-all scale-95 opacity-0 flex flex-col max-h-[90vh]" id="modal-content">
+            <div class="relative flex-1 overflow-y-auto">
+                <button onclick="closeModal()" class="absolute top-0 right-0 text-gray-400 p-2 z-10 bg-white rounded-full"><i class="fa-solid fa-xmark text-xl"></i></button>
                 
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="saveToHistoryAndClose()" class="col-span-2 py-2 bg-yellow-100 text-yellow-700 rounded-xl font-bold hover:bg-yellow-200 transition border border-yellow-200">
+                <h2 id="modal-shop-name" class="text-xl font-black text-gray-800 mb-1 pr-8 leading-tight">店家名稱</h2>
+                
+                <div class="flex items-center gap-2 mb-3">
+                    <span id="modal-shop-rating" class="text-orange-500 font-bold text-sm"><i class="fa-solid fa-star"></i> 4.5</span>
+                    <p id="modal-shop-vicinity" class="text-xs text-gray-500 truncate">地址資訊</p>
+                </div>
+
+                <!-- Google Map in Modal -->
+                <div id="mini-map"></div>
+
+                <div id="modal-photo" class="hidden w-full h-40 object-cover rounded-lg mb-4 bg-gray-200"></div>
+
+                <div class="grid grid-cols-2 gap-3 mt-2">
+                    <button onclick="saveToHistoryAndClose()" class="col-span-2 py-2.5 bg-yellow-50 text-yellow-700 rounded-xl font-bold hover:bg-yellow-100 transition border border-yellow-200">
                         <i class="fa-solid fa-bookmark mr-1"></i> 紀錄：我吃這家
                     </button>
                     <button onclick="shareShop()" class="py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">
                         <i class="fa-brands fa-line text-green-600"></i> 分享
                     </button>
-                    <button onclick="openGoogleMapsFromModal()" class="py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex items-center justify-center">
+                    <button onclick="openGoogleMapsNav()" class="py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex items-center justify-center">
                         <i class="fa-solid fa-diamond-turn-right mr-2"></i> 去導航
                     </button>
                 </div>
@@ -232,21 +224,20 @@
         </div>
     </div>
 
-    <!-- Error Toast -->
-    <div id="error-msg" class="hidden fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-4 py-2 rounded-lg shadow-md text-sm whitespace-nowrap z-[80]">
-        <i class="fa-solid fa-circle-exclamation mr-1"></i> <span id="error-text">發生錯誤</span>
-    </div>
-
     <script>
-        // --- State Variables ---
+        // --- Global Variables ---
+        let map; // Google Map Instance
+        let placesService;
         let currentUserLocation = null;
-        let shopsData = []; // The current list being displayed (Map or Pocket)
-        let currentMode = 'all'; 
+        let shopsData = []; 
+        let currentMode = 'restaurant'; 
         let currentCustomKeyword = '';
         let selectedShop = null;
         let currentRadius = 500;
         let historyData = JSON.parse(localStorage.getItem('foodHistory')) || [];
         let pocketList = JSON.parse(localStorage.getItem('myPocketList')) || [];
+        let apiKey = localStorage.getItem('googleMapsApiKey') || '';
+        let scriptLoaded = false;
 
         // Wheel variables
         let wheelCanvas = document.getElementById('wheel-canvas');
@@ -254,111 +245,91 @@
         let isSpinning = false;
         let currentRotation = 0;
 
-        // --- DOM Elements ---
-        const statusBadge = document.getElementById('status-badge');
+        // DOM
         const startScreen = document.getElementById('start-screen');
         const loadingScreen = document.getElementById('loading-screen');
         const resultsList = document.getElementById('results-list');
-        const fabContainer = document.getElementById('fab-container');
-        const modal = document.getElementById('modal');
-        const modalContent = document.getElementById('modal-content');
-        const historyModal = document.getElementById('history-modal');
-        const rangeInput = document.getElementById('distance-range');
         const rangeValue = document.getElementById('range-value');
         const keywordBadge = document.getElementById('keyword-badge');
-        const currentKeywordText = document.getElementById('current-keyword-text');
-        const rangeContainer = document.getElementById('range-container');
-        const pocketAddBtn = document.getElementById('pocket-add-btn');
-
-        // --- Init ---
+        
+        // --- Initialization ---
         document.getElementById('date-display').innerText = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' });
 
+        // Check for API Key on load
+        if(!apiKey) {
+            document.getElementById('api-status').classList.remove('hidden');
+        } else {
+            loadGoogleMapsScript();
+        }
+
+        // --- API Key Management ---
+        async function openApiKeySettings() {
+            const { value: key } = await Swal.fire({
+                title: '設定 Google Maps API Key',
+                input: 'text',
+                inputValue: apiKey,
+                inputLabel: '請輸入您的 API Key (需啟用 Maps JS & Places API)',
+                inputPlaceholder: 'AIzaSy...',
+                showCancelButton: true,
+                confirmButtonText: '儲存並載入',
+                cancelButtonText: '取消'
+            });
+
+            if (key) {
+                apiKey = key;
+                localStorage.setItem('googleMapsApiKey', apiKey);
+                Swal.fire('已儲存', '正在重新載入地圖元件...', 'success').then(() => {
+                    location.reload();
+                });
+            }
+        }
+
+        function loadGoogleMapsScript() {
+            if (scriptLoaded) return;
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=zh-TW`;
+            script.async = true;
+            script.defer = true;
+            script.onload = () => {
+                scriptLoaded = true;
+                console.log("Google Maps SDK Loaded");
+            };
+            script.onerror = () => {
+                Swal.fire('錯誤', 'API Key 無效或額度不足，請檢查設定', 'error');
+                document.getElementById('api-status').innerText = "API Key 載入失敗";
+                document.getElementById('api-status').classList.remove('hidden');
+            };
+            document.head.appendChild(script);
+        }
+
         // --- Event Listeners ---
-        rangeInput.addEventListener('input', (e) => {
+        document.getElementById('distance-range').addEventListener('input', (e) => {
             currentRadius = e.target.value;
-            const text = currentRadius >= 1000 ? (currentRadius/1000) + " 公里" : currentRadius + " 公尺";
-            rangeValue.innerText = text;
+            rangeValue.innerText = currentRadius >= 1000 ? (currentRadius/1000) + " 公里" : currentRadius + " 公尺";
             document.getElementById('start-range-text').innerText = currentRadius;
         });
 
-        rangeInput.addEventListener('change', () => {
-            if (currentUserLocation && currentMode !== 'pocket') {
-                fetchShops(currentUserLocation.lat, currentUserLocation.lng);
-            }
-        });
-
-        // Wheel Click to Spin
-        wheelCanvas.addEventListener('click', () => {
-            if (!isSpinning) spinWheel();
-        });
-
-        // --- Configuration ---
-        const modes = {
-            'all': {
-                color: 'bg-orange-500',
-                generateQL: (lat, lng, r) => `
-                    node(around:${r},${lat},${lng})["amenity"~"restaurant|fast_food|food_court|cafe"];
-                    way(around:${r},${lat},${lng})["amenity"~"restaurant|fast_food|food_court|cafe"];
-                `
-            },
-            'date': {
-                color: 'bg-pink-500',
-                generateQL: (lat, lng, r) => `
-                    node(around:${r},${lat},${lng})["amenity"~"cafe|ice_cream"];
-                    way(around:${r},${lat},${lng})["amenity"~"cafe|ice_cream"];
-                `
-            },
-            'custom': {
-                color: 'bg-blue-500',
-                generateQL: (lat, lng, r, kw) => `
-                    (
-                      node(around:${r},${lat},${lng})["name"~"${kw}", i];
-                      node(around:${r},${lat},${lng})["cuisine"~"${kw}", i];
-                      way(around:${r},${lat},${lng})["name"~"${kw}", i];
-                      way(around:${r},${lat},${lng})["cuisine"~"${kw}", i];
-                    );
-                `
-            },
-            'pocket': {
-                color: 'bg-yellow-500'
-            }
-        };
-
-        // --- Mode Switching ---
-
+        // --- Core Functions ---
         function setMode(mode) {
             currentMode = mode;
             keywordBadge.classList.add('hidden');
             
-            // Reset Button Styles
+            // UI Reset
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.className = "filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition border border-gray-200";
             });
-
-            // Highlight Active Button
-            if (mode !== 'custom') { // Custom handles its own highlighting
+            
+            if (mode !== 'custom') {
                 const activeBtn = document.getElementById(`btn-${mode}`);
-                activeBtn.classList.remove('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200', 'border-gray-200');
-                activeBtn.classList.add(modes[mode].color, 'text-white', 'shadow-md', 'border-transparent');
+                activeBtn.classList.remove('bg-gray-100', 'text-gray-600');
+                activeBtn.classList.add(mode === 'pocket' ? 'bg-yellow-500' : 'bg-blue-500', 'text-white', 'shadow-md', 'border-transparent');
             }
 
-            // Logic Switch
             if (mode === 'pocket') {
-                // Pocket Mode Logic
-                rangeContainer.classList.add('opacity-50', 'pointer-events-none'); // Disable range slider
                 renderPocketList();
             } else {
-                // Map Mode Logic
-                rangeContainer.classList.remove('opacity-50', 'pointer-events-none');
-                pocketAddBtn.classList.add('hidden');
-                currentCustomKeyword = ''; 
-                
-                if (currentUserLocation) {
-                    fetchShops(currentUserLocation.lat, currentUserLocation.lng);
-                } else if (mode !== 'all') {
-                    // Trigger location if user clicks a mode before searching
-                    getLocation();
-                }
+                document.getElementById('pocket-add-btn').classList.add('hidden');
+                if (currentUserLocation) fetchShops();
             }
         }
 
@@ -366,130 +337,44 @@
             const { value: keyword } = await Swal.fire({
                 title: '想吃什麼？',
                 input: 'text',
-                inputLabel: '輸入關鍵字 (例如：火鍋、壽司)',
-                inputPlaceholder: '輸入關鍵字...',
+                inputLabel: '搜尋關鍵字',
                 showCancelButton: true,
-                confirmButtonColor: '#3B82F6',
-                cancelButtonText: '取消',
                 confirmButtonText: '搜尋'
             });
 
             if (keyword) {
                 currentCustomKeyword = keyword;
                 currentMode = 'custom';
-                
-                // UI Reset
-                document.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.className = "filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition border border-gray-200";
-                });
+                // Reset UI
+                document.querySelectorAll('.filter-btn').forEach(btn => btn.className = "filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 transition border border-gray-200");
                 const btnCustom = document.getElementById('btn-custom');
-                btnCustom.classList.remove('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200', 'border-gray-200');
                 btnCustom.classList.add('bg-blue-500', 'text-white', 'shadow-md', 'border-transparent');
                 
                 keywordBadge.classList.remove('hidden');
-                currentKeywordText.innerText = keyword;
+                document.getElementById('current-keyword-text').innerText = keyword;
 
-                if (!currentUserLocation) {
-                    getLocation(); 
-                } else {
-                    fetchShops(currentUserLocation.lat, currentUserLocation.lng);
-                }
+                if (!currentUserLocation) getLocation();
+                else fetchShops();
             }
         }
-
-        // --- Pocket List Logic ---
-
-        function renderPocketList() {
-            startScreen.classList.add('hidden');
-            loadingScreen.classList.add('hidden');
-            resultsList.classList.remove('hidden');
-            fabContainer.classList.remove('hidden');
-            pocketAddBtn.classList.remove('hidden');
-
-            shopsData = [...pocketList]; // Use pocket list as current data source
-
-            if (shopsData.length === 0) {
-                resultsList.innerHTML = `
-                    <div class="text-center mt-10 text-gray-400 px-6">
-                        <i class="fa-solid fa-star text-4xl mb-3 text-yellow-300"></i>
-                        <h3 class="text-lg font-bold text-gray-600">口袋空空的</h3>
-                        <p class="text-sm mt-2">快點擊右下角的 ＋ 新增你的愛店吧！</p>
-                    </div>
-                `;
-                return;
-            }
-
-            renderShopsUI(true); // true = isPocketMode
-        }
-
-        async function addToPocket() {
-            const { value: formValues } = await Swal.fire({
-                title: '新增口袋名單',
-                html:
-                    '<input id="swal-input1" class="swal2-input" placeholder="店名 (例如: 阿婆乾麵)">' +
-                    '<input id="swal-input2" class="swal2-input" placeholder="類型 (例如: 麵店)">',
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: '新增',
-                confirmButtonColor: '#EAB308',
-                preConfirm: () => {
-                    return [
-                        document.getElementById('swal-input1').value,
-                        document.getElementById('swal-input2').value
-                    ]
-                }
-            });
-
-            if (formValues && formValues[0]) {
-                const newItem = {
-                    id: 'pocket_' + Date.now(),
-                    name: formValues[0],
-                    type: formValues[1] || '美食',
-                    lat: null, // Pocket items might not have coords for now
-                    lon: null,
-                    distance: '自訂',
-                    tags: {}
-                };
-                pocketList.unshift(newItem);
-                localStorage.setItem('myPocketList', JSON.stringify(pocketList));
-                renderPocketList(); // Refresh
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: '已加入！',
-                    timer: 1000,
-                    showConfirmButton: false
-                });
-            }
-        }
-
-        function removeFromPocket(id, event) {
-            event.stopPropagation(); // Prevent card click
-            Swal.fire({
-                title: '移除這家店？',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#EF4444',
-                confirmButtonText: '刪除',
-                cancelButtonText: '取消'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    pocketList = pocketList.filter(item => item.id !== id);
-                    localStorage.setItem('myPocketList', JSON.stringify(pocketList));
-                    renderPocketList();
-                }
-            });
-        }
-
-        // --- Location & Map Fetching ---
 
         function getLocation() {
-            if (!navigator.geolocation) {
-                showError("瀏覽器不支援地理定位");
+            if (!apiKey) {
+                openApiKeySettings();
                 return;
             }
-            statusBadge.classList.remove('hidden');
-            statusBadge.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> 定位中...';
+            if (!navigator.geolocation) {
+                Swal.fire('錯誤', '不支援定位', 'error');
+                return;
+            }
+            
+            // Dummy map div for PlacesService (required by Google)
+            const mapDiv = document.createElement('div'); 
+            map = new google.maps.Map(mapDiv, { center: {lat:0, lng:0}, zoom: 15 });
+            placesService = new google.maps.places.PlacesService(map);
+
+            startScreen.classList.add('hidden');
+            loadingScreen.classList.remove('hidden');
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -497,418 +382,299 @@
                         lat: position.coords.latitude,
                         lng: position.coords.longitude
                     };
-                    statusBadge.innerHTML = '<i class="fa-solid fa-location-arrow text-green-600 mr-1"></i> 定位成功';
-                    statusBadge.classList.add('bg-green-100', 'text-green-800');
-                    fetchShops(currentUserLocation.lat, currentUserLocation.lng);
+                    fetchShops();
                 },
-                (error) => {
-                    let msg = "無法獲取位置";
-                    if (error.code === 1) msg = "請允許位置存取權限";
-                    showError(msg);
-                    statusBadge.innerHTML = '定位失敗';
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                (err) => {
+                    Swal.fire('定位失敗', '請允許瀏覽器取得位置', 'error');
+                    loadingScreen.classList.add('hidden');
+                    startScreen.classList.remove('hidden');
+                }
             );
         }
 
-        async function fetchShops(lat, lng) {
-            startScreen.classList.add('hidden');
-            loadingScreen.classList.remove('hidden');
-            document.getElementById('loading-range-text').innerText = currentRadius;
-            resultsList.classList.add('hidden');
-            fabContainer.classList.add('hidden');
-
-            try {
-                let qlSnippet = '';
-                if (currentMode === 'custom') {
-                    qlSnippet = modes['custom'].generateQL(lat, lng, currentRadius, currentCustomKeyword);
-                } else {
-                    qlSnippet = modes[currentMode].generateQL(lat, lng, currentRadius);
-                }
-
-                const finalQuery = `
-                    [out:json][timeout:25];
-                    (
-                      ${qlSnippet}
-                    );
-                    out center;
-                `;
-
-                const response = await fetch('https://overpass-api.de/api/interpreter', {
-                    method: 'POST',
-                    body: finalQuery
-                });
-
-                if (!response.ok) throw new Error("API Error");
-                const data = await response.json();
-                processResults(data.elements);
-
-            } catch (err) {
-                console.error("Fetch Error:", err);
-                showError("搜尋失敗，請檢查網路");
-                loadingScreen.classList.add('hidden');
-                startScreen.classList.remove('hidden');
-            }
-        }
-
-        function processResults(elements) {
-            const uniqueIds = new Set();
+        function fetchShops() {
+            if(currentMode === 'pocket') return;
             
-            shopsData = elements.filter(el => {
-                if (!el.tags || !el.tags.name) return false;
-                if (uniqueIds.has(el.tags.name)) return false; 
-                uniqueIds.add(el.tags.name);
-                return true;
-            }).map(el => {
-                const lat = el.lat || el.center.lat;
-                const lon = el.lon || el.center.lon;
-                const dist = getDistanceFromLatLonInKm(currentUserLocation.lat, currentUserLocation.lng, lat, lon);
-                return {
-                    id: el.id,
-                    name: el.tags.name,
-                    type: el.tags.cuisine || el.tags.shop || el.tags.amenity || '店家',
-                    lat: lat,
-                    lon: lon,
-                    distance: dist.toFixed(2),
-                    distanceM: Math.round(dist * 1000),
-                    tags: el.tags
-                };
-            }).sort((a, b) => a.distance - b.distance);
+            loadingScreen.classList.remove('hidden');
+            resultsList.classList.add('hidden');
+            document.getElementById('fab-container').classList.add('hidden');
 
-            renderShopsUI(false);
+            let request = {
+                location: currentUserLocation,
+                radius: currentRadius,
+                type: 'restaurant' // default
+            };
+
+            if (currentMode === 'cafe') {
+                request.type = 'cafe';
+            } else if (currentMode === 'custom') {
+                request.keyword = currentCustomKeyword;
+                request.type = undefined; // use keyword instead
+            }
+
+            placesService.nearbySearch(request, (results, status) => {
+                loadingScreen.classList.add('hidden');
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    shopsData = results;
+                    // Sort by rating or distance? 
+                    // nearbySearch isn't strictly distance sorted. Let's trust Google's ranking or sort manually if needed.
+                    renderShopsUI();
+                } else {
+                    resultsList.classList.remove('hidden');
+                    resultsList.innerHTML = `<div class="text-center mt-10 text-gray-400">找不到相關店家 (${status})</div>`;
+                }
+            });
         }
 
-        // --- Rendering List ---
-
-        function renderShopsUI(isPocketMode) {
-            loadingScreen.classList.add('hidden');
+        function renderShopsUI(isPocket = false) {
             resultsList.classList.remove('hidden');
             resultsList.innerHTML = '';
+            document.getElementById('fab-container').classList.remove('hidden');
 
-            // Empty State
-            if (shopsData.length === 0) {
-                 let fallbackKeyword = currentCustomKeyword || (currentMode === 'date' ? '氣氛好的餐廳' : '美食');
-                resultsList.innerHTML = `
-                    <div class="flex flex-col items-center justify-center text-center mt-10 px-6">
-                        <div class="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                            <i class="fa-solid fa-map-location-dot text-3xl text-gray-400"></i>
-                        </div>
-                        <h3 class="text-lg font-bold text-gray-700 mb-2">這裡的資料有點少...</h3>
-                        <button onclick="openGoogleSearchFallback('${fallbackKeyword}')" class="w-full bg-blue-600 text-white py-4 rounded-xl shadow-lg flex items-center justify-center transform transition active:scale-95">
-                            <i class="fa-brands fa-google mr-2"></i> 去 Google Maps 搜尋
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-
-            fabContainer.classList.remove('hidden');
+            const data = isPocket ? pocketList : shopsData;
             
+            // Info bar
             const infoDiv = document.createElement('div');
-            infoDiv.className = "px-4 py-2 text-xs text-gray-500 flex justify-between items-center";
-            infoDiv.innerHTML = `<span>找到 ${shopsData.length} 間店家</span>`;
+            infoDiv.className = "px-4 py-2 text-xs text-gray-500 flex justify-between";
+            infoDiv.innerHTML = `<span>找到 ${data.length} 間店家</span> <span class="text-blue-500">Google Data</span>`;
             resultsList.appendChild(infoDiv);
 
-            shopsData.forEach(shop => {
+            data.forEach(shop => {
                 const card = document.createElement('div');
-                card.className = 'bg-white p-4 rounded-xl shadow-sm mx-4 flex justify-between items-center card-anim cursor-pointer border-l-4 border-transparent hover:border-orange-400 mb-3 relative group';
+                card.className = 'bg-white p-3 rounded-xl shadow-sm mx-4 mb-3 flex items-start gap-3 cursor-pointer card-anim border border-gray-100 hover:border-blue-300';
                 
-                let iconClass = 'fa-utensils';
-                let iconColor = 'text-orange-400';
-                
-                // Icon Logic
-                if(isPocketMode) {
-                     iconClass = 'fa-star'; 
-                     iconColor = 'text-yellow-400';
-                } else {
-                    const t = JSON.stringify(shop.tags).toLowerCase();
-                    if (t.includes('cafe') || t.includes('coffee')) { iconClass = 'fa-mug-hot'; iconColor = 'text-pink-400'; }
-                    else if (t.includes('burger') || t.includes('fast_food')) { iconClass = 'fa-burger'; iconColor = 'text-yellow-500'; }
-                    else if (t.includes('japanese') || t.includes('sushi')) { iconClass = 'fa-fish'; iconColor = 'text-red-400'; }
-                    else if (t.includes('noodle') || t.includes('ramen')) { iconClass = 'fa-bowl-food'; iconColor = 'text-yellow-600'; }
-                    else if (t.includes('bar')) { iconClass = 'fa-martini-glass'; iconColor = 'text-purple-500'; }
+                // Photo Handling
+                let photoUrl = 'https://via.placeholder.com/80?text=No+Img';
+                if (shop.photos && shop.photos.length > 0) {
+                    photoUrl = shop.photos[0].getUrl({maxWidth: 200, maxHeight: 200});
+                } else if (shop.icon) {
+                    photoUrl = shop.icon; // Use Google icon if no photo
                 }
 
-                let distanceText = shop.distance === '自訂' ? '自訂名單' : 
-                                   (shop.distanceM < 1000 ? shop.distanceM + ' m' : shop.distance + ' km');
+                // Rating
+                const rating = shop.rating ? `<span class="text-orange-500 font-bold text-xs"><i class="fa-solid fa-star"></i> ${shop.rating}</span>` : '';
+                const user_ratings = shop.user_ratings_total ? `<span class="text-gray-400 text-xs">(${shop.user_ratings_total})</span>` : '';
 
                 let deleteBtn = '';
-                if(isPocketMode) {
-                    deleteBtn = `<button onclick="removeFromPocket('${shop.id}', event)" class="ml-2 w-8 h-8 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition"><i class="fa-solid fa-trash"></i></button>`;
+                if(isPocket) {
+                     deleteBtn = `<button onclick="removeFromPocket('${shop.id}', event)" class="absolute top-2 right-2 text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>`;
                 }
 
                 card.innerHTML = `
-                    <div class="flex items-center overflow-hidden flex-1">
-                        <div class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center flex-shrink-0 mr-3">
-                            <i class="fa-solid ${iconClass} ${iconColor}"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <h3 class="font-bold text-gray-800 truncate text-base">${shop.name}</h3>
-                            <p class="text-xs text-gray-500 truncate">
-                                <i class="fa-solid fa-location-dot text-gray-300"></i> ${distanceText} 
-                                <span class="mx-1">•</span> ${translateType(shop.type)}
-                            </p>
-                        </div>
-                    </div>
-                    ${deleteBtn}
-                    <div class="flex-shrink-0 ml-2 ${isPocketMode ? 'hidden' : ''}">
-                         <i class="fa-solid fa-chevron-right text-gray-300 text-sm"></i>
+                    <img src="${photoUrl}" class="photo-thumb bg-gray-100 flex-shrink-0" onerror="this.src='https://via.placeholder.com/80?text=Food'">
+                    <div class="flex-1 min-w-0 pt-1 relative">
+                        <h3 class="font-bold text-gray-800 truncate pr-6 text-sm mb-1">${shop.name}</h3>
+                        <div class="mb-1">${rating} ${user_ratings}</div>
+                        <p class="text-xs text-gray-500 truncate"><i class="fa-solid fa-location-dot"></i> ${shop.vicinity || '無地址資訊'}</p>
+                        ${deleteBtn}
                     </div>
                 `;
+
                 card.onclick = () => {
                     selectedShop = shop;
-                    updateModalUI();
                     openModal();
                 };
                 resultsList.appendChild(card);
             });
             
             const spacer = document.createElement('div');
-            spacer.className = 'h-24'; // Extra space for FAB and Pocket Add Btn
+            spacer.className = 'h-24';
             resultsList.appendChild(spacer);
         }
 
-        // --- Wheel of Fortune Logic ---
-
-        function openWheel() {
-            if (shopsData.length === 0) return;
-            document.getElementById('wheel-modal').classList.remove('hidden');
-            document.getElementById('wheel-msg').innerText = "點擊轉盤開始！";
-            isSpinning = false;
-            drawWheel();
-        }
-
-        function closeWheel() {
-            document.getElementById('wheel-modal').classList.add('hidden');
-        }
-
-        function drawWheel() {
-            // Draw logic
-            const count = shopsData.length;
-            const arc = (2 * Math.PI) / count;
-            const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#FF9F43', '#54A0FF', '#5F27CD', '#FD79A8'];
+        // --- Pocket List ---
+        function renderPocketList() {
+            loadingScreen.classList.add('hidden');
+            startScreen.classList.add('hidden');
+            resultsList.classList.remove('hidden');
+            document.getElementById('pocket-add-btn').classList.remove('hidden');
             
-            wheelCtx.clearRect(0, 0, 320, 320);
-            wheelCtx.save();
-            wheelCtx.translate(160, 160);
-            // Rotate based on current rotation state so it looks like it's stopped/spinning
-            wheelCtx.rotate(currentRotation);
-
-            for (let i = 0; i < count; i++) {
-                const angle = i * arc;
-                wheelCtx.beginPath();
-                wheelCtx.fillStyle = colors[i % colors.length];
-                wheelCtx.moveTo(0, 0);
-                wheelCtx.arc(0, 0, 150, angle, angle + arc);
-                wheelCtx.lineTo(0, 0);
-                wheelCtx.fill();
-                
-                // Text
-                wheelCtx.save();
-                wheelCtx.translate(Math.cos(angle + arc / 2) * 100, Math.sin(angle + arc / 2) * 100);
-                wheelCtx.rotate(angle + arc / 2 + Math.PI / 2);
-                wheelCtx.fillStyle = '#fff';
-                wheelCtx.font = 'bold 12px Arial';
-                let text = shopsData[i].name;
-                if(text.length > 6) text = text.substring(0,5) + '..';
-                wheelCtx.fillText(text, -wheelCtx.measureText(text).width / 2, 0);
-                wheelCtx.restore();
+            if (pocketList.length === 0) {
+                 resultsList.innerHTML = `<div class="text-center mt-10 text-gray-400">口袋名單是空的<br>快按右下角＋新增</div>`;
+                 return;
             }
-            
-            // Outer Ring
-            wheelCtx.beginPath();
-            wheelCtx.arc(0, 0, 150, 0, 2 * Math.PI);
-            wheelCtx.lineWidth = 5;
-            wheelCtx.strokeStyle = '#fff';
-            wheelCtx.stroke();
-            
-            wheelCtx.restore();
+            renderShopsUI(true);
         }
 
-        function spinWheel() {
-            if (isSpinning) return;
+        async function addToPocket() {
+            const { value: name } = await Swal.fire({
+                title: '新增口袋名單',
+                input: 'text',
+                inputLabel: '店名',
+                showCancelButton: true
+            });
+            if(name) {
+                pocketList.unshift({
+                    id: 'p_' + Date.now(),
+                    name: name,
+                    vicinity: '自訂地點',
+                    rating: '自訂',
+                    photos: [] // no photo for manual entry
+                });
+                localStorage.setItem('myPocketList', JSON.stringify(pocketList));
+                renderPocketList();
+            }
+        }
+
+        function removeFromPocket(id, e) {
+            e.stopPropagation();
+            pocketList = pocketList.filter(i => i.id !== id);
+            localStorage.setItem('myPocketList', JSON.stringify(pocketList));
+            renderPocketList();
+        }
+
+        // --- Modal & Map ---
+        function openModal() {
+            if(!selectedShop) return;
+            document.getElementById('modal-shop-name').innerText = selectedShop.name;
+            document.getElementById('modal-shop-vicinity').innerText = selectedShop.vicinity || '';
+            document.getElementById('modal-shop-rating').innerHTML = selectedShop.rating ? `<i class="fa-solid fa-star"></i> ${selectedShop.rating} (${selectedShop.user_ratings_total || 0})` : '';
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('modal-content').classList.remove('scale-95', 'opacity-0');
+            }, 10);
+
+            // Initialize Mini Map
+            const mapEl = document.getElementById('mini-map');
+            
+            // For pocket items without geo, show placeholder
+            if (!selectedShop.geometry) {
+                mapEl.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 bg-gray-100">此自訂地點無地圖資料</div>';
+                return;
+            }
+
+            // Render Google Map
+            const shopLocation = selectedShop.geometry.location;
+            const miniMap = new google.maps.Map(mapEl, {
+                center: shopLocation,
+                zoom: 16,
+                disableDefaultUI: true,
+                zoomControl: true
+            });
+            
+            new google.maps.Marker({
+                position: shopLocation,
+                map: miniMap,
+                title: selectedShop.name
+            });
+        }
+
+        function closeModal() {
+             document.getElementById('modal-content').classList.add('scale-95', 'opacity-0');
+             setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function openGoogleMapsNav() {
+            if(!selectedShop) return;
+            const query = encodeURIComponent(selectedShop.name);
+            let url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+            if(selectedShop.geometry) {
+                const lat = selectedShop.geometry.location.lat();
+                const lng = selectedShop.geometry.location.lng();
+                url += `&query_place_id=${selectedShop.place_id}`; // Better accuracy
+            }
+            window.open(url, '_blank');
+        }
+
+        // --- Wheel & History Logic (Same as before) ---
+        function openWheel() {
+            const data = currentMode === 'pocket' ? pocketList : shopsData;
+            if (data.length === 0) return;
+            document.getElementById('wheel-modal').classList.remove('hidden');
+            drawWheel(data);
+            wheelCanvas.onclick = () => spinWheel(data);
+        }
+
+        function closeWheel() { document.getElementById('wheel-modal').classList.add('hidden'); }
+
+        function drawWheel(data) {
+             const count = data.length;
+             const arc = (2 * Math.PI) / count;
+             const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#FF9F43', '#54A0FF', '#5F27CD', '#FD79A8'];
+             
+             wheelCtx.clearRect(0,0,320,320);
+             wheelCtx.save();
+             wheelCtx.translate(160,160);
+             wheelCtx.rotate(currentRotation);
+             
+             for(let i=0; i<count; i++){
+                 const angle = i*arc;
+                 wheelCtx.beginPath();
+                 wheelCtx.fillStyle = colors[i % colors.length];
+                 wheelCtx.moveTo(0,0);
+                 wheelCtx.arc(0,0,150,angle, angle+arc);
+                 wheelCtx.fill();
+                 
+                 wheelCtx.save();
+                 wheelCtx.translate(Math.cos(angle+arc/2)*100, Math.sin(angle+arc/2)*100);
+                 wheelCtx.rotate(angle+arc/2+Math.PI/2);
+                 wheelCtx.fillStyle="#fff";
+                 wheelCtx.font="bold 12px Arial";
+                 let text = data[i].name.substring(0,6);
+                 wheelCtx.fillText(text, -wheelCtx.measureText(text).width/2, 0);
+                 wheelCtx.restore();
+             }
+             wheelCtx.restore();
+        }
+
+        function spinWheel(data) {
+            if(isSpinning) return;
             isSpinning = true;
             document.getElementById('wheel-msg').innerText = "命運轉動中...";
-
-            // Determine winner randomly
-            const winnerIndex = Math.floor(Math.random() * shopsData.length);
-            const arc = (2 * Math.PI) / shopsData.length;
             
-            // Calculate stopping angle
-            // The pointer is at 270 degrees (Top center is 3/2 PI or -PI/2)
-            // But our arrow is physically at top.
-            // We need the wheel to rotate such that the winner segment is at the top (-90deg / 270deg)
-            // Target rotation = (360 * rounds) - (winnerIndex * arc) - (random offset inside segment)
-            
-            const spins = 5 + Math.random() * 5; // 5 to 10 full spins
+            const winnerIndex = Math.floor(Math.random() * data.length);
+            const arc = 2*Math.PI / data.length;
+            const spins = 5 + Math.random() * 5;
             const spinAngle = spins * 2 * Math.PI;
+            const segmentCenter = (winnerIndex * arc) + (arc/2);
+            const targetRotation = spinAngle - segmentCenter - (Math.PI/2);
             
-            // Center of segment
-            const segmentCenter = (winnerIndex * arc) + (arc / 2);
-            
-            // To align segment center with top arrow (-PI/2), we subtract the segment position
-            // But since canvas rotates clockwise, we subtract.
-            // Add -PI/2 to align 0 rad (3 o'clock) to top (12 o'clock)
-            const targetRotation = spinAngle - segmentCenter - (Math.PI/2); 
-
             let start = null;
-            const duration = 4000; // ms
-
             function animate(timestamp) {
-                if (!start) start = timestamp;
-                const progress = timestamp - start;
-                const percent = Math.min(progress / duration, 1);
-                
-                // Ease out cubic
-                const ease = 1 - Math.pow(1 - percent, 3);
-                
+                if(!start) start=timestamp;
+                const p = Math.min((timestamp-start)/4000, 1);
+                const ease = 1 - Math.pow(1-p, 3);
                 currentRotation = targetRotation * ease;
-                drawWheel();
-
-                if (progress < duration) {
-                    requestAnimationFrame(animate);
-                } else {
+                drawWheel(data);
+                if(p<1) requestAnimationFrame(animate);
+                else {
                     isSpinning = false;
-                    setTimeout(() => {
-                        selectedShop = shopsData[winnerIndex];
-                        closeWheel();
-                        updateModalUI();
-                        openModal();
-                    }, 500);
+                    closeWheel();
+                    selectedShop = data[winnerIndex];
+                    openModal();
                 }
             }
             requestAnimationFrame(animate);
         }
-
-        // --- Common Logic ---
-
-        function updateModalUI() {
-            document.getElementById('modal-shop-name').innerText = selectedShop.name;
-            document.getElementById('modal-shop-type').innerText = translateType(selectedShop.type);
-        }
-
-        function openModal() {
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modalContent.classList.remove('scale-95', 'opacity-0');
-                modalContent.classList.add('scale-100', 'opacity-100');
-            }, 10);
-        }
-
-        function closeModal() {
-            modalContent.classList.remove('scale-100', 'opacity-100');
-            modalContent.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
-        }
-
-        function saveToHistoryAndClose() {
-            if (!selectedShop) return;
-            const record = {
-                name: selectedShop.name,
-                date: new Date().toLocaleDateString('zh-TW'),
-                timestamp: Date.now(),
-                type: translateType(selectedShop.type)
-            };
-            historyData.unshift(record);
-            localStorage.setItem('foodHistory', JSON.stringify(historyData));
-
-            Swal.fire({
-                icon: 'success',
-                title: '紀錄成功！',
-                text: `已紀錄今天吃「${selectedShop.name}」`,
-                timer: 1500,
-                showConfirmButton: false,
-                confirmButtonColor: '#F97316'
-            });
-            closeModal();
-        }
-
-        function shareShop() {
-            if (!selectedShop) return;
-            const text = `今天吃這個吧！\n📍 ${selectedShop.name}\n🔗 Google Maps: https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShop.name)}`;
-            
-            if (navigator.share) {
-                navigator.share({ title: '今天吃什麼？', text: text }).catch(console.error);
-            } else {
-                navigator.clipboard.writeText(text).then(() => {
-                    Swal.fire({ icon: 'success', title: '已複製！', text: '可以去 LINE 貼給棠棠囉', timer: 1500, showConfirmButton: false });
-                });
-            }
-        }
-
+        
         // --- History Logic ---
+        function saveToHistoryAndClose() {
+            if(!selectedShop) return;
+            historyData.unshift({ name: selectedShop.name, date: new Date().toLocaleDateString('zh-TW') });
+            localStorage.setItem('foodHistory', JSON.stringify(historyData));
+            closeModal();
+            Swal.fire('已紀錄', '', 'success');
+        }
         function openHistory() {
             const list = document.getElementById('history-list');
             list.innerHTML = '';
-            if (historyData.length === 0) {
-                list.innerHTML = `<div class="text-center text-gray-400 mt-10"><i class="fa-solid fa-cookie-bite text-4xl mb-2"></i><p>還沒有紀錄喔</p></div>`;
-            } else {
-                historyData.forEach((item, index) => {
-                    const el = document.createElement('div');
-                    el.className = "flex justify-between items-center border-b border-gray-100 py-3";
-                    el.innerHTML = `
-                        <div>
-                            <div class="text-xs text-gray-400 mb-1">${item.date}</div>
-                            <div class="font-bold text-gray-800">${item.name}</div>
-                        </div>
-                        <button onclick="deleteHistoryItem(${index})" class="text-gray-300 hover:text-red-500 px-2"><i class="fa-solid fa-trash"></i></button>
-                    `;
-                    list.appendChild(el);
-                });
-            }
-            historyModal.classList.remove('hidden', 'translate-y-full');
-            historyModal.classList.add('translate-y-0');
+            historyData.forEach((h, i) => {
+                list.innerHTML += `<div class="flex justify-between p-2 border-b"><span class="font-bold">${h.name}</span><span class="text-sm text-gray-500">${h.date}</span></div>`;
+            });
+            document.getElementById('history-modal').classList.remove('hidden', 'translate-y-full');
+            document.getElementById('history-modal').classList.add('translate-y-0');
         }
-        function closeHistory() { historyModal.classList.add('translate-y-full'); setTimeout(() => { historyModal.classList.add('hidden'); }, 300); }
-        function deleteHistoryItem(index) { historyData.splice(index, 1); localStorage.setItem('foodHistory', JSON.stringify(historyData)); openHistory(); }
-        function clearHistory() { if(confirm("確定要清空所有紀錄嗎？")) { historyData = []; localStorage.setItem('foodHistory', JSON.stringify(historyData)); openHistory(); } }
-
-        // --- Navigation ---
-        function openGoogleMapsFromModal() {
-            if(selectedShop) {
-                const query = encodeURIComponent(selectedShop.name);
-                let url;
-                if(selectedShop.lat) {
-                    url = `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${selectedShop.lat},${selectedShop.lon}`;
-                } else {
-                    // Pocket list item might not have coords
-                    url = `https://www.google.com/maps/search/?api=1&query=${query}`;
-                }
-                window.open(url, '_blank');
-            }
+        function closeHistory() {
+             document.getElementById('history-modal').classList.add('translate-y-full');
+             setTimeout(()=>document.getElementById('history-modal').classList.add('hidden'), 300);
+        }
+        function clearHistory() { historyData=[]; localStorage.setItem('foodHistory', '[]'); openHistory(); }
+        function shareShop() {
+            const text = `今天吃: ${selectedShop.name} https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShop.name)}`;
+            navigator.clipboard.writeText(text).then(()=>Swal.fire('已複製分享文字', '', 'success'));
         }
 
-        function openGoogleSearchFallback(keyword) {
-            if(!keyword) keyword = currentCustomKeyword || '美食';
-             const url = `https://www.google.com/maps/search/${keyword}/@${currentUserLocation.lat},${currentUserLocation.lng},15z/data=!3m1!4b1`;
-            window.open(url, '_blank');
-        }
-
-        // --- Helpers ---
-        function translateType(type) {
-            const dict = {
-                'restaurant': '餐廳', 'fast_food': '速食', 'cafe': '咖啡廳', 'ice_cream': '冰淇淋',
-                'noodle': '麵店', 'japanese': '日式料理', 'burger': '漢堡', 'pizza': '披薩', 'bar': '酒吧'
-            };
-            return dict[type] || '餐廳';
-        }
-        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-            var R = 6371; 
-            var dLat = deg2rad(lat2-lat1);  
-            var dLon = deg2rad(lon2-lon1); 
-            var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
-            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-            return R * c; 
-        }
-        function deg2rad(deg) { return deg * (Math.PI/180); }
-        function showError(text) {
-            const errDiv = document.getElementById('error-msg');
-            document.getElementById('error-text').innerText = text;
-            errDiv.classList.remove('hidden');
-            setTimeout(() => { errDiv.classList.add('hidden'); }, 3000);
-        }
     </script>
 </body>
 </html>
