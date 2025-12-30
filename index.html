@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>今天吃什麼？(Google Maps 豪華版)</title>
+    <title>今天吃什麼？v5.0 (評分版)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -36,7 +36,6 @@
         .card-anim:active {
             transform: scale(0.98);
         }
-        /* Hide scrollbar */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         
@@ -64,15 +63,28 @@
         .photo-thumb {
             width: 80px; height: 80px; object-fit: cover; border-radius: 8px;
         }
+        /* Star Rating in History */
+        .star-rating i {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .star-rating i:hover {
+            color: #F59E0B; /* Orange-400 */
+        }
     </style>
 </head>
 <body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
 
     <!-- Header -->
     <header class="bg-white shadow-sm z-10 px-4 py-3 flex justify-between items-center">
-        <div>
-            <h1 class="text-xl font-bold text-gray-800"><i class="fa-brands fa-google text-blue-500 mr-2"></i>今天吃什麼</h1>
-            <p class="text-xs text-gray-500">Hi 晨晨，<span id="date-display"></span></p>
+        <div class="flex items-center gap-2">
+            <button onclick="refreshSearch()" class="bg-blue-50 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center hover:bg-blue-100 transition shadow-sm" title="重新整理">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">今天吃什麼</h1>
+                <p class="text-xs text-gray-500">Hi 晨晨，<span id="date-display"></span></p>
+            </div>
         </div>
         <div class="flex gap-3">
              <button onclick="openApiKeySettings()" class="bg-gray-100 p-2 rounded-full text-gray-600 hover:bg-gray-200 transition relative">
@@ -91,6 +103,7 @@
                 <span>搜尋範圍</span>
                 <span id="range-value" class="font-bold text-blue-600">500 公尺</span>
             </div>
+            <!-- Added onchange for auto-refresh -->
             <input type="range" id="distance-range" min="100" max="2000" step="100" value="500" class="w-full accent-blue-500">
         </div>
 
@@ -103,9 +116,6 @@
             </button>
             <button onclick="askCustomSearch()" id="btn-custom" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition border border-gray-200">
                 🔍 自訂搜尋
-            </button>
-            <button onclick="setMode('pocket')" id="btn-pocket" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition border border-gray-200">
-                ⭐ 口袋名單
             </button>
         </div>
         
@@ -131,7 +141,7 @@
             </div>
             <div>
                 <h2 class="text-xl font-bold text-gray-800">Google 美食雷達</h2>
-                <p class="text-gray-500 mt-2 text-sm px-8">請先設定 API Key，然後找出周圍 <span id="start-range-text">500</span> 公尺內的評價好店</p>
+                <p class="text-gray-500 mt-2 text-sm px-8">請先設定 API Key，然後找出周圍 <span id="start-range-text">500</span> 公尺內的店家</p>
                 <p id="api-status" class="text-xs text-red-500 mt-2 font-bold hidden">尚未設定 API Key</p>
             </div>
             <button onclick="getLocation()" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold py-3 px-10 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95 flex items-center text-lg">
@@ -143,18 +153,11 @@
         <div id="loading-screen" class="hidden flex flex-col items-center justify-center h-full pt-20">
             <div class="loader mb-4"></div>
             <p class="text-gray-600 font-medium">Google 正在幫你掃描...</p>
-            <p class="text-gray-400 text-xs mt-2">正在讀取評價與照片</p>
+            <p class="text-gray-400 text-xs mt-2">正在計算距離與讀取照片</p>
         </div>
 
         <!-- Results -->
         <div id="results-list" class="hidden pb-24 space-y-3"></div>
-
-        <!-- Pocket Add Button -->
-        <div id="pocket-add-btn" class="hidden fixed bottom-24 right-6 z-20">
-            <button onclick="addToPocket()" class="bg-yellow-500 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-xl hover:bg-yellow-600 transition">
-                <i class="fa-solid fa-plus"></i>
-            </button>
-        </div>
     </main>
 
     <!-- FAB (Dice) -->
@@ -187,13 +190,12 @@
                 
                 <div class="flex items-center gap-2 mb-3">
                     <span id="modal-shop-rating" class="text-orange-500 font-bold text-sm"><i class="fa-solid fa-star"></i> 4.5</span>
-                    <p id="modal-shop-vicinity" class="text-xs text-gray-500 truncate">地址資訊</p>
+                    <span id="modal-shop-dist" class="text-blue-600 text-xs font-bold bg-blue-50 px-2 py-0.5 rounded"></span>
                 </div>
+                <p id="modal-shop-vicinity" class="text-xs text-gray-500 mb-3 truncate">地址資訊</p>
 
                 <!-- Google Map in Modal -->
                 <div id="mini-map"></div>
-
-                <div id="modal-photo" class="hidden w-full h-40 object-cover rounded-lg mb-4 bg-gray-200"></div>
 
                 <div class="grid grid-cols-2 gap-3 mt-2">
                     <button onclick="saveToHistoryAndClose()" class="col-span-2 py-2.5 bg-yellow-50 text-yellow-700 rounded-xl font-bold hover:bg-yellow-100 transition border border-yellow-200">
@@ -213,12 +215,14 @@
     <!-- History Modal -->
     <div id="history-modal" class="fixed inset-0 bg-white z-[70] hidden flex flex-col transition-transform duration-300 translate-y-full">
         <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-book-open text-orange-500 mr-2"></i>吃貨紀錄</h2>
+            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-book-open text-orange-500 mr-2"></i>吃貨評分紀錄</h2>
             <button onclick="closeHistory()" class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div class="flex-1 overflow-y-auto p-4" id="history-list"></div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="history-list">
+            <!-- History Items will be injected here -->
+        </div>
         <div class="p-4 border-t border-gray-200 bg-white text-center">
             <button onclick="clearHistory()" class="text-red-500 text-sm font-medium">清除所有紀錄</button>
         </div>
@@ -235,7 +239,6 @@
         let selectedShop = null;
         let currentRadius = 500;
         let historyData = JSON.parse(localStorage.getItem('foodHistory')) || [];
-        let pocketList = JSON.parse(localStorage.getItem('myPocketList')) || [];
         let apiKey = localStorage.getItem('googleMapsApiKey') || '';
         let scriptLoaded = false;
 
@@ -251,11 +254,11 @@
         const resultsList = document.getElementById('results-list');
         const rangeValue = document.getElementById('range-value');
         const keywordBadge = document.getElementById('keyword-badge');
+        const distanceRange = document.getElementById('distance-range');
         
         // --- Initialization ---
         document.getElementById('date-display').innerText = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' });
 
-        // Check for API Key on load
         if(!apiKey) {
             document.getElementById('api-status').classList.remove('hidden');
         } else {
@@ -268,25 +271,22 @@
                 title: '設定 Google Maps API Key',
                 input: 'text',
                 inputValue: apiKey,
-                inputLabel: '請輸入您的 API Key (需啟用 Maps JS & Places API)',
-                inputPlaceholder: 'AIzaSy...',
+                inputLabel: '請輸入您的 API Key',
                 showCancelButton: true,
-                confirmButtonText: '儲存並載入',
-                cancelButtonText: '取消'
+                confirmButtonText: '儲存並載入'
             });
 
             if (key) {
                 apiKey = key;
                 localStorage.setItem('googleMapsApiKey', apiKey);
-                Swal.fire('已儲存', '正在重新載入地圖元件...', 'success').then(() => {
-                    location.reload();
-                });
+                Swal.fire('已儲存', '正在重新載入...', 'success').then(() => location.reload());
             }
         }
 
         function loadGoogleMapsScript() {
             if (scriptLoaded) return;
             const script = document.createElement('script');
+            // Added libraries=places
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=zh-TW`;
             script.async = true;
             script.defer = true;
@@ -295,18 +295,27 @@
                 console.log("Google Maps SDK Loaded");
             };
             script.onerror = () => {
-                Swal.fire('錯誤', 'API Key 無效或額度不足，請檢查設定', 'error');
-                document.getElementById('api-status').innerText = "API Key 載入失敗";
+                Swal.fire('錯誤', 'API Key 無效或額度不足', 'error');
                 document.getElementById('api-status').classList.remove('hidden');
             };
             document.head.appendChild(script);
         }
 
         // --- Event Listeners ---
-        document.getElementById('distance-range').addEventListener('input', (e) => {
+        // 1. Display text update while dragging
+        distanceRange.addEventListener('input', (e) => {
             currentRadius = e.target.value;
             rangeValue.innerText = currentRadius >= 1000 ? (currentRadius/1000) + " 公里" : currentRadius + " 公尺";
             document.getElementById('start-range-text').innerText = currentRadius;
+        });
+
+        // 2. Auto refresh when drag ends (change event)
+        distanceRange.addEventListener('change', (e) => {
+            currentRadius = e.target.value;
+            // Only auto-refresh if we already have location/results
+            if (currentUserLocation) {
+                refreshSearch();
+            }
         });
 
         // --- Core Functions ---
@@ -322,14 +331,14 @@
             if (mode !== 'custom') {
                 const activeBtn = document.getElementById(`btn-${mode}`);
                 activeBtn.classList.remove('bg-gray-100', 'text-gray-600');
-                activeBtn.classList.add(mode === 'pocket' ? 'bg-yellow-500' : 'bg-blue-500', 'text-white', 'shadow-md', 'border-transparent');
-            }
-
-            if (mode === 'pocket') {
-                renderPocketList();
-            } else {
-                document.getElementById('pocket-add-btn').classList.add('hidden');
-                if (currentUserLocation) fetchShops();
+                activeBtn.classList.add('bg-blue-500', 'text-white', 'shadow-md', 'border-transparent');
+                
+                // Trigger search immediately if location exists
+                if (currentUserLocation) {
+                    fetchShops();
+                } else {
+                    getLocation();
+                }
             }
         }
 
@@ -345,7 +354,6 @@
             if (keyword) {
                 currentCustomKeyword = keyword;
                 currentMode = 'custom';
-                // Reset UI
                 document.querySelectorAll('.filter-btn').forEach(btn => btn.className = "filter-btn px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 transition border border-gray-200");
                 const btnCustom = document.getElementById('btn-custom');
                 btnCustom.classList.add('bg-blue-500', 'text-white', 'shadow-md', 'border-transparent');
@@ -355,6 +363,15 @@
 
                 if (!currentUserLocation) getLocation();
                 else fetchShops();
+            }
+        }
+
+        // Refresh Button Logic
+        function refreshSearch() {
+            if (!currentUserLocation) {
+                getLocation();
+            } else {
+                fetchShops();
             }
         }
 
@@ -368,7 +385,6 @@
                 return;
             }
             
-            // Dummy map div for PlacesService (required by Google)
             const mapDiv = document.createElement('div'); 
             map = new google.maps.Map(mapDiv, { center: {lat:0, lng:0}, zoom: 15 });
             placesService = new google.maps.places.PlacesService(map);
@@ -393,8 +409,6 @@
         }
 
         function fetchShops() {
-            if(currentMode === 'pocket') return;
-            
             loadingScreen.classList.remove('hidden');
             resultsList.classList.add('hidden');
             document.getElementById('fab-container').classList.add('hidden');
@@ -402,22 +416,30 @@
             let request = {
                 location: currentUserLocation,
                 radius: currentRadius,
-                type: 'restaurant' // default
+                type: 'restaurant' 
             };
 
             if (currentMode === 'cafe') {
                 request.type = 'cafe';
             } else if (currentMode === 'custom') {
                 request.keyword = currentCustomKeyword;
-                request.type = undefined; // use keyword instead
+                request.type = undefined; 
             }
 
             placesService.nearbySearch(request, (results, status) => {
                 loadingScreen.classList.add('hidden');
                 if (status === google.maps.places.PlacesServiceStatus.OK) {
-                    shopsData = results;
-                    // Sort by rating or distance? 
-                    // nearbySearch isn't strictly distance sorted. Let's trust Google's ranking or sort manually if needed.
+                    // Process results to add distance
+                    shopsData = results.map(shop => {
+                        const distMeters = calculateDistance(
+                            currentUserLocation.lat, currentUserLocation.lng,
+                            shop.geometry.location.lat(), shop.geometry.location.lng()
+                        );
+                        shop.distanceVal = distMeters; // Store for sorting if needed
+                        shop.distanceText = distMeters < 1000 ? `${Math.round(distMeters)} m` : `${(distMeters/1000).toFixed(1)} km`;
+                        return shop;
+                    }).sort((a, b) => a.distanceVal - b.distanceVal); // Sort by distance nearest first
+
                     renderShopsUI();
                 } else {
                     resultsList.classList.remove('hidden');
@@ -426,47 +448,55 @@
             });
         }
 
-        function renderShopsUI(isPocket = false) {
+        // Helper: Haversine Formula for distance
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // metres
+            const φ1 = lat1 * Math.PI/180; 
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c;
+        }
+
+        function renderShopsUI() {
             resultsList.classList.remove('hidden');
             resultsList.innerHTML = '';
             document.getElementById('fab-container').classList.remove('hidden');
 
-            const data = isPocket ? pocketList : shopsData;
-            
-            // Info bar
             const infoDiv = document.createElement('div');
             infoDiv.className = "px-4 py-2 text-xs text-gray-500 flex justify-between";
-            infoDiv.innerHTML = `<span>找到 ${data.length} 間店家</span> <span class="text-blue-500">Google Data</span>`;
+            infoDiv.innerHTML = `<span>找到 ${shopsData.length} 間店家</span> <span class="text-blue-500">Google Data</span>`;
             resultsList.appendChild(infoDiv);
 
-            data.forEach(shop => {
+            shopsData.forEach(shop => {
                 const card = document.createElement('div');
                 card.className = 'bg-white p-3 rounded-xl shadow-sm mx-4 mb-3 flex items-start gap-3 cursor-pointer card-anim border border-gray-100 hover:border-blue-300';
                 
-                // Photo Handling
                 let photoUrl = 'https://via.placeholder.com/80?text=No+Img';
                 if (shop.photos && shop.photos.length > 0) {
                     photoUrl = shop.photos[0].getUrl({maxWidth: 200, maxHeight: 200});
                 } else if (shop.icon) {
-                    photoUrl = shop.icon; // Use Google icon if no photo
+                    photoUrl = shop.icon; 
                 }
 
-                // Rating
                 const rating = shop.rating ? `<span class="text-orange-500 font-bold text-xs"><i class="fa-solid fa-star"></i> ${shop.rating}</span>` : '';
                 const user_ratings = shop.user_ratings_total ? `<span class="text-gray-400 text-xs">(${shop.user_ratings_total})</span>` : '';
-
-                let deleteBtn = '';
-                if(isPocket) {
-                     deleteBtn = `<button onclick="removeFromPocket('${shop.id}', event)" class="absolute top-2 right-2 text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>`;
-                }
 
                 card.innerHTML = `
                     <img src="${photoUrl}" class="photo-thumb bg-gray-100 flex-shrink-0" onerror="this.src='https://via.placeholder.com/80?text=Food'">
                     <div class="flex-1 min-w-0 pt-1 relative">
-                        <h3 class="font-bold text-gray-800 truncate pr-6 text-sm mb-1">${shop.name}</h3>
+                        <div class="flex justify-between items-start">
+                             <h3 class="font-bold text-gray-800 truncate pr-2 text-sm mb-1">${shop.name}</h3>
+                             <span class="text-xs font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded flex-shrink-0">${shop.distanceText}</span>
+                        </div>
                         <div class="mb-1">${rating} ${user_ratings}</div>
                         <p class="text-xs text-gray-500 truncate"><i class="fa-solid fa-location-dot"></i> ${shop.vicinity || '無地址資訊'}</p>
-                        ${deleteBtn}
                     </div>
                 `;
 
@@ -482,69 +512,25 @@
             resultsList.appendChild(spacer);
         }
 
-        // --- Pocket List ---
-        function renderPocketList() {
-            loadingScreen.classList.add('hidden');
-            startScreen.classList.add('hidden');
-            resultsList.classList.remove('hidden');
-            document.getElementById('pocket-add-btn').classList.remove('hidden');
-            
-            if (pocketList.length === 0) {
-                 resultsList.innerHTML = `<div class="text-center mt-10 text-gray-400">口袋名單是空的<br>快按右下角＋新增</div>`;
-                 return;
-            }
-            renderShopsUI(true);
-        }
-
-        async function addToPocket() {
-            const { value: name } = await Swal.fire({
-                title: '新增口袋名單',
-                input: 'text',
-                inputLabel: '店名',
-                showCancelButton: true
-            });
-            if(name) {
-                pocketList.unshift({
-                    id: 'p_' + Date.now(),
-                    name: name,
-                    vicinity: '自訂地點',
-                    rating: '自訂',
-                    photos: [] // no photo for manual entry
-                });
-                localStorage.setItem('myPocketList', JSON.stringify(pocketList));
-                renderPocketList();
-            }
-        }
-
-        function removeFromPocket(id, e) {
-            e.stopPropagation();
-            pocketList = pocketList.filter(i => i.id !== id);
-            localStorage.setItem('myPocketList', JSON.stringify(pocketList));
-            renderPocketList();
-        }
-
         // --- Modal & Map ---
         function openModal() {
             if(!selectedShop) return;
             document.getElementById('modal-shop-name').innerText = selectedShop.name;
             document.getElementById('modal-shop-vicinity').innerText = selectedShop.vicinity || '';
-            document.getElementById('modal-shop-rating').innerHTML = selectedShop.rating ? `<i class="fa-solid fa-star"></i> ${selectedShop.rating} (${selectedShop.user_ratings_total || 0})` : '';
+            document.getElementById('modal-shop-rating').innerHTML = selectedShop.rating ? `<i class="fa-solid fa-star"></i> ${selectedShop.rating}` : '';
+            document.getElementById('modal-shop-dist').innerText = selectedShop.distanceText || '';
 
             modal.classList.remove('hidden');
             setTimeout(() => {
                 document.getElementById('modal-content').classList.remove('scale-95', 'opacity-0');
             }, 10);
 
-            // Initialize Mini Map
+            // Render Google Map
             const mapEl = document.getElementById('mini-map');
-            
-            // For pocket items without geo, show placeholder
             if (!selectedShop.geometry) {
-                mapEl.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 bg-gray-100">此自訂地點無地圖資料</div>';
+                mapEl.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 bg-gray-100">無地圖資料</div>';
                 return;
             }
-
-            // Render Google Map
             const shopLocation = selectedShop.geometry.location;
             const miniMap = new google.maps.Map(mapEl, {
                 center: shopLocation,
@@ -552,7 +538,6 @@
                 disableDefaultUI: true,
                 zoomControl: true
             });
-            
             new google.maps.Marker({
                 position: shopLocation,
                 map: miniMap,
@@ -570,34 +555,27 @@
             const query = encodeURIComponent(selectedShop.name);
             let url = `https://www.google.com/maps/search/?api=1&query=${query}`;
             if(selectedShop.geometry) {
-                const lat = selectedShop.geometry.location.lat();
-                const lng = selectedShop.geometry.location.lng();
-                url += `&query_place_id=${selectedShop.place_id}`; // Better accuracy
+                url += `&query_place_id=${selectedShop.place_id}`; 
             }
             window.open(url, '_blank');
         }
 
-        // --- Wheel & History Logic (Same as before) ---
+        // --- Wheel Logic ---
         function openWheel() {
-            const data = currentMode === 'pocket' ? pocketList : shopsData;
-            if (data.length === 0) return;
+            if (shopsData.length === 0) return;
             document.getElementById('wheel-modal').classList.remove('hidden');
-            drawWheel(data);
-            wheelCanvas.onclick = () => spinWheel(data);
+            drawWheel(shopsData);
+            wheelCanvas.onclick = () => spinWheel(shopsData);
         }
-
         function closeWheel() { document.getElementById('wheel-modal').classList.add('hidden'); }
-
         function drawWheel(data) {
              const count = data.length;
              const arc = (2 * Math.PI) / count;
              const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#FF9F43', '#54A0FF', '#5F27CD', '#FD79A8'];
-             
              wheelCtx.clearRect(0,0,320,320);
              wheelCtx.save();
              wheelCtx.translate(160,160);
              wheelCtx.rotate(currentRotation);
-             
              for(let i=0; i<count; i++){
                  const angle = i*arc;
                  wheelCtx.beginPath();
@@ -605,7 +583,6 @@
                  wheelCtx.moveTo(0,0);
                  wheelCtx.arc(0,0,150,angle, angle+arc);
                  wheelCtx.fill();
-                 
                  wheelCtx.save();
                  wheelCtx.translate(Math.cos(angle+arc/2)*100, Math.sin(angle+arc/2)*100);
                  wheelCtx.rotate(angle+arc/2+Math.PI/2);
@@ -617,19 +594,16 @@
              }
              wheelCtx.restore();
         }
-
         function spinWheel(data) {
             if(isSpinning) return;
             isSpinning = true;
             document.getElementById('wheel-msg').innerText = "命運轉動中...";
-            
             const winnerIndex = Math.floor(Math.random() * data.length);
             const arc = 2*Math.PI / data.length;
             const spins = 5 + Math.random() * 5;
             const spinAngle = spins * 2 * Math.PI;
             const segmentCenter = (winnerIndex * arc) + (arc/2);
             const targetRotation = spinAngle - segmentCenter - (Math.PI/2);
-            
             let start = null;
             function animate(timestamp) {
                 if(!start) start=timestamp;
@@ -648,27 +622,74 @@
             requestAnimationFrame(animate);
         }
         
-        // --- History Logic ---
+        // --- History & Rating Logic (UPDATED) ---
         function saveToHistoryAndClose() {
             if(!selectedShop) return;
-            historyData.unshift({ name: selectedShop.name, date: new Date().toLocaleDateString('zh-TW') });
+            // Default rating 0 means not rated yet
+            historyData.unshift({ 
+                name: selectedShop.name, 
+                date: new Date().toLocaleDateString('zh-TW'),
+                userRating: 0 
+            });
             localStorage.setItem('foodHistory', JSON.stringify(historyData));
             closeModal();
-            Swal.fire('已紀錄', '', 'success');
+            Swal.fire({
+                icon: 'success',
+                title: '已紀錄',
+                text: '別忘了去紀錄打分數喔！',
+                timer: 1500,
+                showConfirmButton: false
+            });
         }
+
+        function rateHistoryItem(index, rating) {
+            historyData[index].userRating = rating;
+            localStorage.setItem('foodHistory', JSON.stringify(historyData));
+            openHistory(); // Re-render to show stars
+        }
+
         function openHistory() {
             const list = document.getElementById('history-list');
             list.innerHTML = '';
+            
+            if(historyData.length === 0) {
+                 list.innerHTML = `<div class="text-center text-gray-400 mt-10">還沒有紀錄喔</div>`;
+            }
+
             historyData.forEach((h, i) => {
-                list.innerHTML += `<div class="flex justify-between p-2 border-b"><span class="font-bold">${h.name}</span><span class="text-sm text-gray-500">${h.date}</span></div>`;
+                // Generate Stars
+                let starsHtml = '';
+                for(let s=1; s<=5; s++) {
+                    const colorClass = s <= h.userRating ? 'text-yellow-400' : 'text-gray-300';
+                    starsHtml += `<i class="fa-solid fa-star text-lg ${colorClass} px-1" onclick="rateHistoryItem(${i}, ${s})"></i>`;
+                }
+
+                list.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="font-bold text-gray-800">${h.name}</h3>
+                                <div class="text-xs text-gray-400">${h.date}</div>
+                            </div>
+                            <button onclick="deleteHistoryItem(${i})" class="text-gray-300 hover:text-red-500 p-1"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-xs text-gray-500 mr-2">我的評分:</span>
+                            <div class="star-rating flex">
+                                ${starsHtml}
+                            </div>
+                        </div>
+                    </div>`;
             });
             document.getElementById('history-modal').classList.remove('hidden', 'translate-y-full');
             document.getElementById('history-modal').classList.add('translate-y-0');
         }
+
         function closeHistory() {
              document.getElementById('history-modal').classList.add('translate-y-full');
              setTimeout(()=>document.getElementById('history-modal').classList.add('hidden'), 300);
         }
+        function deleteHistoryItem(index) { historyData.splice(index, 1); localStorage.setItem('foodHistory', JSON.stringify(historyData)); openHistory(); }
         function clearHistory() { historyData=[]; localStorage.setItem('foodHistory', '[]'); openHistory(); }
         function shareShop() {
             const text = `今天吃: ${selectedShop.name} https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShop.name)}`;
