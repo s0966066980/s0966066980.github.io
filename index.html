@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>今天吃什麼？v10.0 (外送連動版)</title>
+    <title>今天吃什麼？v11.0 (精準版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -256,12 +256,9 @@
                     <div id="modal-hours-text" class="pl-6 text-gray-500 dark:text-gray-300">讀取中...</div>
                 </div>
                 
-                <!-- Delivery Links (New) -->
+                <!-- Delivery Links (Uber Only) -->
                 <div class="flex gap-2 mb-4">
-                     <button onclick="searchDelivery('foodpanda')" class="flex-1 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold flex items-center justify-center transition">
-                         <span class="mr-1">🐼</span> 搜 Foodpanda
-                     </button>
-                     <button onclick="searchDelivery('ubereats')" class="flex-1 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white text-xs font-bold flex items-center justify-center transition">
+                     <button onclick="searchDelivery('ubereats')" class="w-full py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white text-xs font-bold flex items-center justify-center transition">
                          <span class="mr-1">🚲</span> 搜 UberEats
                      </button>
                 </div>
@@ -466,7 +463,7 @@
                 type: 'restaurant' 
             };
 
-            // FIX: Use keyword for multiple types to avoid API array issues
+            // Enhanced Keywords for v11
             if (currentMode === 'date') {
                 delete request.type;
                 request.keyword = '咖啡廳 OR 甜點 OR 下午茶 OR 蛋糕';
@@ -477,7 +474,7 @@
                 if (subCategory && subCategory !== 'all') {
                     if (subCategory === '日式料理') request.keyword = '日式料理 OR 壽司 OR 拉麵';
                     else if (subCategory === '韓式料理') request.keyword = '韓式料理 OR 韓式烤肉 OR 泡菜';
-                    else if (subCategory === '手搖') request.keyword = '手搖飲料 OR 珍珠奶茶 OR 飲料店';
+                    else if (subCategory === '手搖') request.keyword = '手搖飲料 OR 珍珠奶茶';
                     else request.keyword = subCategory;
                 }
             }
@@ -500,7 +497,19 @@
 
         function processAndRenderShops() {
             let filtered = allFetchedShops.filter(shop => {
-                if (onlyOpenNow) return shop.opening_hours && shop.opening_hours.open_now;
+                // Open Now Filter
+                if (onlyOpenNow) {
+                    if (!shop.opening_hours || !shop.opening_hours.open_now) return false;
+                }
+                
+                // Strict Drink Filter (Exclude Cafes)
+                if (currentMode === 'restaurant' && subCategory === '手搖') {
+                    const isCafe = shop.types.includes('cafe');
+                    const nameHasTea = shop.name.includes('茶') || shop.name.includes('飲');
+                    // If it's classified as a cafe AND name doesn't imply tea/drink shop clearly, exclude it.
+                    if (isCafe && !nameHasTea) return false;
+                }
+
                 return true;
             });
 
@@ -642,9 +651,7 @@
         function searchDelivery(platform) {
             const name = encodeURIComponent(selectedShop.name);
             let url = '';
-            if (platform === 'foodpanda') {
-                url = `https://www.foodpanda.com.tw/restaurants?q=${name}`;
-            } else if (platform === 'ubereats') {
+            if (platform === 'ubereats') {
                 url = `https://www.ubereats.com/tw/search?q=${name}`;
             }
             window.open(url, '_blank');
