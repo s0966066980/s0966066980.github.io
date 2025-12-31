@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>今天吃什麼？v13.0</title>
+    <title>今天吃什麼？v14.0 (完美解析版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -62,7 +62,6 @@
         .photo-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 0.75rem; }
         .card-anim { opacity: 0; animation-fill-mode: forwards; } 
         
-        /* Slot Machine */
         .slot-window { overflow: hidden; height: 100px; background: #fff; border-radius: 8px; border: 2px solid #ddd; position: relative; }
         .slot-strip { display: flex; flex-direction: column; align-items: center; transition: transform 3s cubic-bezier(0.25, 1, 0.5, 1); }
         .slot-item { height: 100px; display: flex; align-items: center; justify-content: center; font-size: 2rem; width: 100%; padding: 0 10px; text-align: center; line-height: 1.2; }
@@ -116,7 +115,7 @@
                     <!-- Budget Filter -->
                     <button onclick="toggleBudgetFilter()" id="btn-budget" class="text-xs font-bold px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 border border-gray-200 dark:border-gray-600">預算 <i class="fa-solid fa-chevron-down ml-1"></i></button>
                     
-                    <!-- Open Now Toggle (Fixed Structure) -->
+                    <!-- Open Now Toggle -->
                     <div class="flex items-center">
                         <label class="toggle-wrapper mr-2">
                             <input type="checkbox" id="open-now-toggle" onchange="toggleOpenNow()">
@@ -239,7 +238,7 @@
             <div class="mb-6">
                 <p class="text-sm text-gray-500 mb-2">雲端功能 (Firebase)</p>
                 <button onclick="setupFirebase()" class="w-full py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-sm border border-gray-200 dark:border-gray-600">設定 Firebase Config</button>
-                <p class="text-[10px] text-gray-400 mt-1 text-center">格式自動修正：直接貼上即可</p>
+                <p class="text-[10px] text-gray-400 mt-1 text-center">支援直接貼上 const 格式</p>
             </div>
 
             <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="w-full py-2 theme-bg text-white rounded-xl font-bold">關閉</button>
@@ -356,34 +355,67 @@
     </div>
 
     <script>
-        // --- Theme Manager (FIXED) ---
+        // --- Robust Config Parser (Fixes JSON Error) ---
+        async function setupFirebase() {
+            const { value: configStr } = await Swal.fire({
+                title: 'Firebase Config',
+                input: 'textarea',
+                inputLabel: '請貼上 Firebase Config (整段 const 或 { ... })',
+                inputPlaceholder: 'const firebaseConfig = { ... }',
+                showCancelButton: true
+            });
+            if(configStr) {
+                try {
+                    let cleanStr = configStr;
+                    // Extract inner object if curly braces exist
+                    if (cleanStr.includes('{')) {
+                        cleanStr = cleanStr.substring(cleanStr.indexOf('{'), cleanStr.lastIndexOf('}') + 1);
+                    }
+                    // Clean up comments and standard formatting
+                    cleanStr = cleanStr.replace(/\/\/.*$/gm, ''); // remove comments
+                    cleanStr = cleanStr.replace(/,\s*}/g, '}'); // remove trailing commas
+                    
+                    // Regex magic to quote unquoted keys
+                    cleanStr = cleanStr.replace(/([a-zA-Z0-9_]+)\s*:/g, '"$1":');
+                    // Convert single quotes to double quotes for values
+                    cleanStr = cleanStr.replace(/'/g, '"');
+
+                    const config = JSON.parse(cleanStr);
+                    localStorage.setItem('firebaseConfig', JSON.stringify(config));
+                    Swal.fire('成功', 'Firebase 設定已儲存，即將重整', 'success').then(() => location.reload());
+                } catch(e) {
+                    console.error("Config Parse Error:", e);
+                    Swal.fire('格式錯誤', '無法解析，請確保複製完整的大括號內容', 'error');
+                }
+            }
+        }
+
+        // --- Theme Manager ---
         function applyTheme(color, bgLight) {
-            // Apply to :root
             document.documentElement.style.setProperty('--primary', color);
             document.documentElement.style.setProperty('--primary-light', bgLight);
-            // Save settings
             localStorage.setItem('themeColor', color);
             localStorage.setItem('themeBg', bgLight);
         }
-        
         function openSettings() { document.getElementById('settings-modal').classList.remove('hidden'); }
         function openThemePicker() { document.getElementById('theme-modal').classList.remove('hidden'); }
         function closeThemePicker() { document.getElementById('theme-modal').classList.add('hidden'); }
-        function changeTheme(c, l) { applyTheme(c, l); } // Removed closeThemePicker call to allow seeing changes
+        function changeTheme(c, l) { applyTheme(c, l); }
         
-        // Init Theme
         const savedColor = localStorage.getItem('themeColor');
         const savedBg = localStorage.getItem('themeBg');
         if(savedColor) applyTheme(savedColor, savedBg);
 
         // --- Weather Toggle Logic ---
-        let isWeatherEnabled = localStorage.getItem('isWeatherEnabled') !== 'false'; // Default True
+        let isWeatherEnabled = localStorage.getItem('isWeatherEnabled') !== 'false';
         document.getElementById('weather-toggle').checked = isWeatherEnabled;
 
         function toggleWeather() {
             isWeatherEnabled = document.getElementById('weather-toggle').checked;
             localStorage.setItem('isWeatherEnabled', isWeatherEnabled);
-            if(currentUserLocation) fetchWeather(currentUserLocation.lat, currentUserLocation.lng);
+            const badge = document.getElementById('weather-badge');
+            if(isWeatherEnabled && currentUserLocation) fetchWeather(currentUserLocation.lat, currentUserLocation.lng);
+            else badge.classList.add('hidden');
         }
 
         // --- Global Variables ---
@@ -424,10 +456,7 @@
 
         async function fetchWeather(lat, lng) {
             const badge = document.getElementById('weather-badge');
-            if(!isWeatherEnabled) {
-                badge.classList.add('hidden');
-                return;
-            }
+            if(!isWeatherEnabled) return;
             try {
                 const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
                 const data = await res.json();
@@ -504,7 +533,7 @@
                 type: 'restaurant' 
             };
 
-            // Enhanced Keywords v13
+            // Enhanced Keywords
             if (currentMode === 'date') {
                 delete request.type;
                 request.keyword = '咖啡廳 OR 甜點 OR 下午茶 OR 蛋糕';
@@ -520,8 +549,8 @@
                         request.keyword = '手搖飲料 OR 珍珠奶茶 OR 飲料店';
                     }
                     else if (subCategory === '牛排') {
-                        // Strict steak Logic
-                        request.keyword = '牛排 OR 鐵板牛排 OR 炙燒牛排';
+                        delete request.type;
+                        request.keyword = '牛排 OR 鐵板牛排 OR Steak';
                     }
                     else request.keyword = subCategory;
                 }
@@ -555,12 +584,14 @@
                 // 3. Strict Logic
                 if (currentMode === 'restaurant') {
                     const name = shop.name.toLowerCase();
-                    // Steak Logic: Filter out Hotpot if just want Steak
+                    // Steak Logic (Refined for v13)
                     if (subCategory === '牛排') {
-                        // Exclude places that are purely generic diners or hotpot unless they say steak
-                        if (name.includes('火鍋') && !name.includes('牛排')) return false;
+                        // Must have steak related keywords
+                        if (!name.includes('牛排') && !name.includes('steak') && !name.includes('鐵板')) return false;
+                        // Exclude generic bento/noodle places that might serve a steak side dish
+                        if (name.includes('便當') || name.includes('麵')) return false;
                     }
-                    // Bubble Tea Logic
+                    // Bubble Tea Logic (Refined for v13)
                     if (subCategory === '手搖') {
                         const badKeywords = ['starbucks', 'louisa', 'cama', 'coffee', '咖啡', '伯朗'];
                         const goodKeywords = ['茶', '飲', '凍', '吸', 'tea', 'beverage', '50嵐', 'coco', '清心', '可不可'];
@@ -616,7 +647,9 @@
                 
                 let typeIcon = '';
                 if(subCategory === '手搖') typeIcon = '🥤 ';
+                else if(subCategory === '日式料理' || shop.name.includes('壽司')) typeIcon = '🍱 ';
                 else if(subCategory === '牛排') typeIcon = '🥩 ';
+                else if(subCategory === '小吃') typeIcon = '🍢 ';
                 
                 const isOpen = shop.opening_hours ? shop.opening_hours.open_now : null;
                 const statusColor = isOpen === true ? 'bg-green-500' : (isOpen === false ? 'bg-red-500' : 'bg-gray-400');
@@ -665,30 +698,7 @@
             if(allFetchedShops.length > 0) processAndRenderShops();
         }
 
-        // --- Firebase Config Parser (Fixed) ---
-        async function setupFirebase() {
-            const { value: configStr } = await Swal.fire({
-                title: 'Firebase Config',
-                input: 'textarea',
-                inputLabel: '請貼上 Firebase Config',
-                inputPlaceholder: 'const firebaseConfig = { ... }',
-                showCancelButton: true
-            });
-            if(configStr) {
-                try {
-                    // Robust parser: removes "const ... =", removes comments, ensures keys are quoted
-                    let cleanStr = configStr.replace(/const\s+\w+\s*=\s*/, '').replace(/;/g, ''); 
-                    cleanStr = cleanStr.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2": ');
-                    cleanStr = cleanStr.replace(/'/g, '"'); // Ensure double quotes
-                    const config = JSON.parse(cleanStr); 
-                    localStorage.setItem('firebaseConfig', JSON.stringify(config));
-                    Swal.fire('成功', 'Firebase 設定已儲存，即將重整', 'success').then(() => location.reload());
-                } catch(e) { console.error(e); Swal.fire('格式錯誤', '無法解析 Config，請確認複製完整', 'error'); }
-            }
-        }
-
-        // --- Standard Logic (Modal, Wheel, Party) matches v12 logic ---
-        // (Function stubs maintained for brevity as they were stable)
+        // --- Standard Logic (Modal, Wheel, Party) ---
         function setMode(mode) {
             currentMode = mode;
             document.getElementById('keyword-badge').classList.add('hidden');
