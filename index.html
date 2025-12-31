@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>今天吃什麼？v11.0 (精準版)</title>
+    <title>今天吃什麼？v12.0</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,34 +12,26 @@
             darkMode: 'media',
             theme: {
                 extend: {
-                    colors: {
-                        gray: { 900: '#111827', 800: '#1F2937', 700: '#374151' }
-                    }
+                    colors: { gray: { 900: '#111827', 800: '#1F2937', 700: '#374151' } },
+                    animation: { 'fade-in-up': 'fadeInUp 0.5s ease-out forwards' },
+                    keyframes: { fadeInUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
                 }
             }
         }
     </script>
     
-    <!-- Font Awesome -->
+    <!-- Libraries -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Firebase (Optional for Voting) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     
     <style>
-        /* CSS Variables */
-        :root {
-            --primary: #3B82F6;
-            --primary-light: #EFF6FF;
-            --text-on-primary: #ffffff;
-        }
-
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-            transition: background-color 0.3s, color 0.3s;
-        }
+        :root { --primary: #3B82F6; --primary-light: #EFF6FF; --text-on-primary: #ffffff; }
+        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; transition: background-color 0.3s; }
         
         .theme-bg { background-color: var(--primary) !important; color: var(--text-on-primary) !important; }
         .theme-text { color: var(--primary) !important; }
@@ -50,69 +42,63 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .loader {
-            border: 3px solid #e5e7eb;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            width: 30px; height: 30px;
-            animation: spin 1s linear infinite;
-        }
+        .loader { border: 3px solid #e5e7eb; border-top: 3px solid var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         .toggle-checkbox:checked { right: 0; border-color: var(--primary); }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--primary); }
         
-        .chip {
-            transition: all 0.2s; white-space: nowrap;
-            border: 1px solid #E5E7EB;
-            background-color: white;
-            color: #4B5563;
-        }
+        .chip { transition: all 0.2s; white-space: nowrap; border: 1px solid #E5E7EB; background-color: white; color: #4B5563; }
         .dark .chip { background-color: #1F2937; border-color: #374151; color: #D1D5DB; }
-        .chip.active {
-            background-color: var(--primary-light); color: var(--primary); border-color: var(--primary); font-weight: 700;
-        }
+        .chip.active { background-color: var(--primary-light); color: var(--primary); border-color: var(--primary); font-weight: 700; }
         .dark .chip.active { background-color: var(--primary); color: white; }
 
         #mini-map { width: 100%; height: 180px; background-color: #eee; border-radius: 0.75rem; margin-bottom: 1rem; }
         .photo-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 0.75rem; }
-        .card-anim { transition: transform 0.1s, box-shadow 0.1s; }
-        .card-anim:active { transform: scale(0.97); }
-        .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
-        .color-dot.selected { border-color: #374151; transform: scale(1.1); }
-        .dark .color-dot.selected { border-color: white; }
+        .card-anim { opacity: 0; animation-fill-mode: forwards; } /* Handled by JS */
+        
+        /* Slot Machine */
+        .slot-window { overflow: hidden; height: 100px; background: #fff; border-radius: 8px; border: 2px solid #ddd; position: relative; }
+        .slot-strip { display: flex; flex-direction: column; align-items: center; transition: transform 3s cubic-bezier(0.25, 1, 0.5, 1); }
+        .slot-item { height: 100px; display: flex; align-items: center; justify-content: center; font-size: 2rem; width: 100%; }
+        .slot-line { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: rgba(255,0,0,0.3); z-index: 10; }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-gray-800 shadow-sm z-20 px-4 py-3 flex justify-between items-center transition-colors duration-300">
+    <header class="bg-white dark:bg-gray-800 shadow-sm z-20 px-4 py-3 flex justify-between items-center transition-colors">
         <div class="flex items-center gap-3">
-            <button onclick="refreshSearch()" class="theme-bg-light w-10 h-10 rounded-full flex items-center justify-center transition shadow-sm active:scale-90" title="重新整理">
+            <button onclick="refreshSearch(true)" class="theme-bg-light w-10 h-10 rounded-full flex items-center justify-center transition shadow-sm active:scale-90" title="強制重新整理">
                 <i class="fa-solid fa-arrows-rotate"></i>
             </button>
-            <div>
-                <h1 class="text-lg font-bold text-gray-800 dark:text-white">今天吃什麼</h1>
+            <div class="flex flex-col">
+                <div class="flex items-center gap-2">
+                    <h1 class="text-lg font-bold text-gray-800 dark:text-white">今天吃什麼</h1>
+                    <div id="weather-badge" class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 hidden">
+                        <i class="fa-solid fa-cloud"></i> 載入中
+                    </div>
+                </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400">Hi 吃貨，<span id="date-display"></span></p>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="openThemePicker()" class="bg-gray-100 dark:bg-gray-700 p-2.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                <i class="fa-solid fa-palette"></i>
+            <button onclick="openPartyMode()" class="bg-purple-50 dark:bg-purple-900/30 p-2.5 rounded-full text-purple-500 hover:bg-purple-100 transition relative" title="好友投票">
+                <i class="fa-solid fa-users"></i>
             </button>
-             <button onclick="openApiKeySettings()" class="bg-gray-100 dark:bg-gray-700 p-2.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                <i class="fa-solid fa-key"></i>
+            <button onclick="openSettings()" class="bg-gray-100 dark:bg-gray-700 p-2.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition">
+                <i class="fa-solid fa-gear"></i>
             </button>
-            <button onclick="openFavorites()" class="bg-pink-50 dark:bg-gray-700 p-2.5 rounded-full text-pink-500 hover:bg-pink-100 dark:hover:bg-gray-600 transition relative">
+            <button onclick="openFavorites()" class="bg-pink-50 dark:bg-gray-700 p-2.5 rounded-full text-pink-500 hover:bg-pink-100 transition relative">
                 <i class="fa-solid fa-heart"></i>
             </button>
         </div>
     </header>
 
     <!-- Controls Area -->
-    <div class="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 pb-2 z-10 transition-colors duration-300">
+    <div class="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 pb-2 z-10">
         
-        <!-- Distance & Toggle Row -->
+        <!-- Range & Filters -->
         <div class="px-4 py-3" id="range-container">
             <div class="flex justify-between items-center mb-2">
                 <div class="flex items-baseline gap-2">
@@ -120,19 +106,31 @@
                     <span id="range-value" class="font-bold theme-text text-sm">500 m</span>
                 </div>
                 
-                <!-- Open Now Toggle -->
-                <label for="open-now-toggle" class="flex items-center cursor-pointer relative select-none">
-                    <div class="relative">
-                        <input type="checkbox" id="open-now-toggle" class="sr-only" onchange="toggleOpenNow()">
-                        <div class="block bg-gray-200 dark:bg-gray-600 w-9 h-5 rounded-full toggle-bg transition"></div>
-                        <div class="dot absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition transform" id="toggle-dot"></div>
-                    </div>
-                    <div class="ml-2 text-xs font-medium text-gray-600 dark:text-gray-300">只看營業中</div>
-                </label>
+                <div class="flex gap-2">
+                    <!-- Budget Filter -->
+                    <button onclick="toggleBudgetFilter()" id="btn-budget" class="text-xs font-bold px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-500">預算 <i class="fa-solid fa-chevron-down"></i></button>
+                    <!-- Open Now -->
+                    <label for="open-now-toggle" class="flex items-center cursor-pointer relative select-none">
+                        <div class="relative">
+                            <input type="checkbox" id="open-now-toggle" class="sr-only" onchange="toggleOpenNow()">
+                            <div class="block bg-gray-200 dark:bg-gray-600 w-9 h-5 rounded-full toggle-bg transition"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition transform" id="toggle-dot"></div>
+                        </div>
+                        <div class="ml-2 text-xs font-medium text-gray-600 dark:text-gray-300">只看營業中</div>
+                    </label>
+                </div>
             </div>
             
             <input type="range" id="distance-range" min="100" max="2000" step="100" value="500" 
                    class="theme-accent w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer">
+            
+            <!-- Budget Dropdown (Hidden) -->
+            <div id="budget-dropdown" class="hidden mt-2 flex gap-2 overflow-x-auto pb-1">
+                <button onclick="setBudget(0)" class="chip budget-chip px-3 py-1 rounded-full text-xs active">不限</button>
+                <button onclick="setBudget(1)" class="chip budget-chip px-3 py-1 rounded-full text-xs">$</button>
+                <button onclick="setBudget(2)" class="chip budget-chip px-3 py-1 rounded-full text-xs">$$</button>
+                <button onclick="setBudget(3)" class="chip budget-chip px-3 py-1 rounded-full text-xs">$$$</button>
+            </div>
         </div>
 
         <!-- Main Categories -->
@@ -148,7 +146,7 @@
             </button>
         </div>
 
-        <!-- Sub Categories (Chips) -->
+        <!-- Sub Categories -->
         <div id="sub-categories" class="px-4 flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide pb-2 mt-1">
             <button onclick="setSubCategory('all')" id="chip-all" class="chip active px-3 py-1.5 rounded-full text-xs font-medium">全部</button>
             <button onclick="setSubCategory('手搖')" id="chip-drink" class="chip px-3 py-1.5 rounded-full text-xs font-medium">🥤 手搖</button>
@@ -161,7 +159,6 @@
             <button onclick="setSubCategory('居酒屋')" id="chip-izakaya" class="chip px-3 py-1.5 rounded-full text-xs font-medium">🍺 居酒屋</button>
         </div>
         
-        <!-- Keyword Badge -->
         <div id="keyword-badge" class="hidden px-4 py-1 mt-1">
             <span class="text-xs font-bold theme-text theme-bg-light px-3 py-1 rounded-lg inline-flex items-center">
                 <span>搜尋：<span id="current-keyword-text"></span></span>
@@ -182,7 +179,7 @@
             </div>
             <div>
                 <h2 class="text-xl font-bold text-gray-800 dark:text-white">今天吃什麼？</h2>
-                <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm px-8">隨機精選 20 家好店<br>解決你的選擇困難</p>
+                <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm px-8">智慧快取 • 天氣推薦 • 好友投票</p>
                 <p id="api-status" class="text-xs text-red-500 mt-2 font-bold hidden bg-red-50 px-2 py-1 rounded inline-block">⚠️ 請先設定 API Key</p>
             </div>
             <button onclick="getLocation()" class="theme-bg hover:opacity-90 text-white font-bold py-3.5 px-10 rounded-2xl shadow-lg transform transition active:scale-95 flex items-center text-lg">
@@ -193,7 +190,7 @@
         <!-- Loading -->
         <div id="loading-screen" class="hidden flex flex-col items-center justify-center h-full pt-20">
             <div class="loader mb-4"></div>
-            <p class="text-gray-600 dark:text-gray-300 font-medium">正在掃描周圍店家...</p>
+            <p class="text-gray-600 dark:text-gray-300 font-medium">正在幫你尋找好料...</p>
         </div>
 
         <!-- Results -->
@@ -201,42 +198,93 @@
 
     </main>
 
-    <!-- FAB (Dice) -->
+    <!-- FAB (Slot Machine) -->
     <div id="fab-container" class="hidden absolute bottom-6 right-6 z-20">
-        <button onclick="openWheel()" class="bg-gray-800 dark:bg-gray-700 text-white w-14 h-14 rounded-full shadow-xl shadow-gray-400/50 dark:shadow-black/50 flex items-center justify-center text-xl hover:bg-gray-700 dark:hover:bg-gray-600 transition transform hover:rotate-12 active:scale-90 border-2 border-white dark:border-gray-600">
-            <i class="fa-solid fa-dice"></i>
+        <button onclick="openSlotMachine()" class="bg-gray-800 dark:bg-gray-700 text-white w-14 h-14 rounded-full shadow-xl shadow-gray-400/50 dark:shadow-black/50 flex items-center justify-center text-xl hover:bg-gray-700 dark:hover:bg-gray-600 transition transform hover:rotate-12 active:scale-90 border-2 border-white dark:border-gray-600">
+            <i class="fa-solid fa-gamepad"></i>
         </button>
     </div>
 
-    <!-- Theme Picker Modal -->
-    <div id="theme-modal" class="fixed inset-0 bg-black/50 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl w-full max-w-xs transform scale-100">
-            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4 text-center">選擇主題色</h3>
-            <div class="flex justify-center gap-4 mb-6">
-                <div onclick="changeTheme('#3B82F6', '#EFF6FF')" class="color-dot bg-blue-500" title="晨晨藍"></div>
-                <div onclick="changeTheme('#F97316', '#FFF7ED')" class="color-dot bg-orange-500" title="食慾橘"></div>
-                <div onclick="changeTheme('#EC4899', '#FDF2F8')" class="color-dot bg-pink-500" title="棠棠粉"></div>
-                <div onclick="changeTheme('#10B981', '#ECFDF5')" class="color-dot bg-emerald-500" title="清新綠"></div>
-                <div onclick="changeTheme('#8B5CF6', '#F5F3FF')" class="color-dot bg-violet-500" title="夜貓紫"></div>
+    <!-- Settings/Theme Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/50 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl w-full max-w-xs">
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4 text-center">設定 & 主題</h3>
+            
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 mb-2">主題色調</p>
+                <div class="flex justify-center gap-3">
+                    <div onclick="changeTheme('#3B82F6', '#EFF6FF')" class="color-dot bg-blue-500" title="晨晨藍"></div>
+                    <div onclick="changeTheme('#F97316', '#FFF7ED')" class="color-dot bg-orange-500" title="食慾橘"></div>
+                    <div onclick="changeTheme('#EC4899', '#FDF2F8')" class="color-dot bg-pink-500" title="棠棠粉"></div>
+                    <div onclick="changeTheme('#10B981', '#ECFDF5')" class="color-dot bg-emerald-500" title="清新綠"></div>
+                    <div onclick="changeTheme('#8B5CF6', '#F5F3FF')" class="color-dot bg-violet-500" title="夜貓紫"></div>
+                </div>
             </div>
-            <button onclick="closeThemePicker()" class="w-full py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold">關閉</button>
+
+            <div class="mb-6">
+                <p class="text-sm text-gray-500 mb-2">雲端功能 (Firebase)</p>
+                <button onclick="setupFirebase()" class="w-full py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-sm border border-gray-200 dark:border-gray-600">設定 Firebase Config</button>
+                <p class="text-[10px] text-gray-400 mt-1 text-center">設定後才可使用好友投票與雲端備份</p>
+            </div>
+
+            <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="w-full py-2 theme-bg text-white rounded-xl font-bold">關閉</button>
         </div>
     </div>
 
-    <!-- Wheel Modal -->
-    <div id="wheel-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex flex-col items-center justify-center backdrop-blur-sm">
-        <div class="relative w-80 h-80 mb-8">
-            <div class="arrow-down border-t-red-500"></div>
-            <canvas id="wheel-canvas" width="320" height="320" class="w-full h-full drop-shadow-2xl"></canvas>
-            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-md z-10 flex items-center justify-center border-2 border-gray-200">
-                <div class="w-3 h-3 bg-orange-500 rounded-full"></div>
+    <!-- Slot Machine Modal -->
+    <div id="slot-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex flex-col items-center justify-center backdrop-blur-sm">
+        <div class="relative w-80 mb-8 p-4 bg-yellow-500 rounded-2xl shadow-2xl border-4 border-yellow-600">
+            <div class="slot-window bg-white relative">
+                <div class="slot-line"></div>
+                <div class="slot-strip" id="slot-strip"></div>
+            </div>
+            <div class="absolute -right-8 top-1/2 w-6 h-20 bg-red-600 rounded-r-lg border-2 border-l-0 border-red-800 cursor-pointer active:scale-y-90 origin-top" onclick="spinSlot()">
+                <div class="w-8 h-8 rounded-full bg-red-700 absolute -bottom-4 -left-1 shadow-md"></div>
             </div>
         </div>
-        <div id="wheel-msg" class="text-white text-xl font-bold animate-pulse">點擊轉盤開始！</div>
-        <button onclick="closeWheel()" class="mt-8 text-gray-400 text-sm hover:text-white underline">取消</button>
+        <div id="slot-msg" class="text-white text-xl font-bold animate-pulse">拉動拉桿來決定！</div>
+        <button onclick="closeSlot()" class="mt-8 text-gray-400 text-sm hover:text-white underline">取消</button>
     </div>
 
-    <!-- Result Modal -->
+    <!-- Voting Room Modal -->
+    <div id="party-modal" class="fixed inset-0 bg-black/60 z-[75] hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-4 text-center">👯 好友投票 (Party Mode)</h3>
+            
+            <div id="party-setup">
+                <p class="text-sm text-gray-500 mb-4 text-center">開啟房間，分享 ID 給好友，一起投票選餐廳！</p>
+                <input type="text" id="party-room-id" placeholder="輸入或產生房間 ID" class="w-full p-3 rounded-xl bg-gray-100 dark:bg-gray-700 dark:text-white mb-3 text-center tracking-widest font-mono">
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="createRoom()" class="theme-bg text-white py-3 rounded-xl font-bold">建立房間</button>
+                    <button onclick="joinRoom()" class="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-3 rounded-xl font-bold">加入房間</button>
+                </div>
+            </div>
+
+            <div id="party-voting" class="hidden text-center">
+                <div class="mb-4">
+                    <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">房間: <span id="current-room-display" class="font-mono"></span></span>
+                </div>
+                <div id="voting-card-area" class="h-48 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center mb-4 relative overflow-hidden">
+                    <h3 id="voting-shop-name" class="text-xl font-bold">載入中...</h3>
+                </div>
+                <div class="flex justify-center gap-6">
+                    <button onclick="vote(false)" class="w-16 h-16 rounded-full bg-red-100 text-red-500 text-2xl flex items-center justify-center border-2 border-red-200"><i class="fa-solid fa-xmark"></i></button>
+                    <button onclick="vote(true)" class="w-16 h-16 rounded-full bg-green-100 text-green-500 text-2xl flex items-center justify-center border-2 border-green-200"><i class="fa-solid fa-check"></i></button>
+                </div>
+            </div>
+            
+            <div id="party-result" class="hidden text-center">
+                <i class="fa-solid fa-champagne-glasses text-4xl text-yellow-500 mb-3"></i>
+                <h3 class="text-lg font-bold mb-2">配對成功！</h3>
+                <p id="match-result-name" class="text-2xl font-black theme-text mb-4"></p>
+                <button onclick="openModalForMatch()" class="w-full theme-bg text-white py-3 rounded-xl">查看詳情</button>
+            </div>
+
+            <button onclick="closeParty()" class="mt-4 w-full text-gray-400 text-sm">關閉</button>
+        </div>
+    </div>
+
+    <!-- Result Modal (Standard) -->
     <div id="modal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4 transition-opacity duration-300">
         <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm p-5 shadow-2xl transform transition-all scale-95 opacity-0 flex flex-col max-h-[90vh]" id="modal-content">
             <div class="relative flex-1 overflow-y-auto scrollbar-hide">
@@ -250,13 +298,11 @@
                     <span id="modal-shop-status" class="text-xs font-bold px-2 py-0.5 rounded border"></span>
                 </div>
                 
-                <!-- Detailed Opening Hours -->
                 <div id="modal-hours-container" class="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm border border-gray-100 dark:border-gray-700">
                     <div class="font-bold mb-1 flex items-center theme-text"><i class="fa-regular fa-clock mr-2"></i> <span id="modal-hours-title">營業時間</span></div>
                     <div id="modal-hours-text" class="pl-6 text-gray-500 dark:text-gray-300">讀取中...</div>
                 </div>
                 
-                <!-- Delivery Links (Uber Only) -->
                 <div class="flex gap-2 mb-4">
                      <button onclick="searchDelivery('ubereats')" class="w-full py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white text-xs font-bold flex items-center justify-center transition">
                          <span class="mr-1">🚲</span> 搜 UberEats
@@ -264,8 +310,6 @@
                 </div>
 
                 <p id="modal-shop-vicinity" class="text-xs text-gray-400 mb-4 truncate">地址資訊</p>
-
-                <!-- Map -->
                 <div id="mini-map" class="dark:grayscale-[30%]"></div>
 
                 <div class="grid grid-cols-2 gap-3 mt-2">
@@ -287,9 +331,7 @@
     <div id="fav-modal" class="fixed inset-0 bg-white dark:bg-gray-900 z-[70] hidden flex flex-col transition-transform duration-300 translate-y-full">
         <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
             <h2 class="text-lg font-bold text-gray-800 dark:text-white"><i class="fa-solid fa-heart text-pink-500 mr-2"></i>我的最愛</h2>
-            <button onclick="closeFavorites()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <button onclick="closeFavorites()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-3" id="fav-list"></div>
         <div class="p-4 border-t border-gray-100 dark:border-gray-800 text-center">
@@ -298,21 +340,7 @@
     </div>
 
     <script>
-        // --- Theme Manager ---
-        function applyTheme(color, bgLight) {
-            document.documentElement.style.setProperty('--primary', color);
-            document.documentElement.style.setProperty('--primary-light', bgLight);
-            localStorage.setItem('themeColor', color);
-            localStorage.setItem('themeBg', bgLight);
-        }
-        function openThemePicker() { document.getElementById('theme-modal').classList.remove('hidden'); }
-        function closeThemePicker() { document.getElementById('theme-modal').classList.add('hidden'); }
-        function changeTheme(c, l) { applyTheme(c, l); closeThemePicker(); }
-        const savedColor = localStorage.getItem('themeColor');
-        const savedBg = localStorage.getItem('themeBg');
-        if(savedColor) applyTheme(savedColor, savedBg);
-
-        // --- Global Variables ---
+        // --- Init & Config ---
         let map, placesService;
         let currentUserLocation = null;
         let allFetchedShops = [];
@@ -323,27 +351,57 @@
         let selectedShop = null;
         let currentRadius = 500;
         let onlyOpenNow = false;
+        let selectedBudget = 0; // 0: All, 1: $, 2: $$, 3: $$$
         let myFavorites = JSON.parse(localStorage.getItem('myFavorites')) || [];
         let apiKey = localStorage.getItem('googleMapsApiKey') || '';
+        let firebaseConfig = JSON.parse(localStorage.getItem('firebaseConfig')) || null;
+        let apiCache = JSON.parse(sessionStorage.getItem('apiCache')) || {}; // Session Cache
         let scriptLoaded = false;
-        let wheelCanvas = document.getElementById('wheel-canvas');
-        let wheelCtx = wheelCanvas.getContext('2d');
+        
+        // Slot Machine Vars
+        let slotStrip = document.getElementById('slot-strip');
         let isSpinning = false;
-        let currentRotation = 0;
 
+        // Init UI
         document.getElementById('date-display').innerText = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' });
+        const savedColor = localStorage.getItem('themeColor');
+        const savedBg = localStorage.getItem('themeBg');
+        if(savedColor) {
+            document.documentElement.style.setProperty('--primary', savedColor);
+            document.documentElement.style.setProperty('--primary-light', savedBg);
+        }
+        
         if(!apiKey) document.getElementById('api-status').classList.remove('hidden');
         else loadGoogleMapsScript();
 
+        // --- Distance & Weather ---
         const distRange = document.getElementById('distance-range');
         const rangeVal = document.getElementById('range-value');
-        
         distRange.addEventListener('input', (e) => {
             currentRadius = parseInt(e.target.value);
             rangeVal.innerText = currentRadius >= 1000 ? (currentRadius/1000) + " km" : currentRadius + " m";
         });
         distRange.addEventListener('change', () => { if(currentUserLocation) refreshSearch(); });
 
+        async function fetchWeather(lat, lng) {
+            const badge = document.getElementById('weather-badge');
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                const data = await res.json();
+                const code = data.current_weather.weathercode;
+                let icon = 'cloud'; let text = '多雲';
+                // Simplified codes
+                if (code <= 1) { icon = 'sun'; text = '晴天'; }
+                else if (code <= 3) { icon = 'cloud-sun'; text = '多雲'; }
+                else if (code <= 67) { icon = 'cloud-rain'; text = '有雨'; }
+                else if (code > 80) { icon = 'bolt'; text = '雷雨'; }
+                
+                badge.innerHTML = `<i class="fa-solid fa-${icon}"></i> ${text}`;
+                badge.classList.remove('hidden');
+            } catch(e) { console.error("Weather error", e); }
+        }
+
+        // --- API & Cache Logic ---
         async function openApiKeySettings() {
             const { value: key } = await Swal.fire({ title: '設定 API Key', input: 'text', inputValue: apiKey, showCancelButton: true });
             if (key) { apiKey = key; localStorage.setItem('googleMapsApiKey', apiKey); location.reload(); }
@@ -357,77 +415,7 @@
             document.head.appendChild(script);
         }
 
-        function toggleOpenNow() {
-            onlyOpenNow = document.getElementById('open-now-toggle').checked;
-            const dot = document.getElementById('toggle-dot');
-            const bg = document.querySelector('.toggle-bg');
-            if (onlyOpenNow) {
-                dot.classList.add('translate-x-4');
-                bg.style.backgroundColor = 'var(--primary)';
-            } else {
-                dot.classList.remove('translate-x-4');
-                bg.style.backgroundColor = '';
-                bg.classList.add('bg-gray-200', 'dark:bg-gray-600');
-            }
-            if(allFetchedShops.length > 0) processAndRenderShops();
-        }
-
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('keyword-badge').classList.add('hidden');
-            
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.className = "filter-btn px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 transition transform active:scale-95";
-            });
-            
-            if (mode !== 'custom') {
-                document.getElementById(`btn-${mode}`).className = "filter-btn theme-bg px-4 py-2 rounded-xl text-sm font-bold shadow-md transition transform active:scale-95";
-            }
-
-            if (mode === 'restaurant') {
-                document.getElementById('sub-categories').classList.remove('hidden');
-            } else {
-                document.getElementById('sub-categories').classList.add('hidden');
-                subCategory = 'all';
-            }
-
-            if (currentUserLocation) refreshSearch(); else getLocation();
-        }
-
-        function setSubCategory(cat) {
-            subCategory = cat;
-            const chips = document.getElementById('sub-categories').querySelectorAll('button');
-            chips.forEach(c => c.classList.remove('active'));
-            
-            if(cat === 'all') document.getElementById('chip-all').classList.add('active');
-            else if(cat === '手搖') document.getElementById('chip-drink').classList.add('active');
-            else if(cat === '小吃') document.getElementById('chip-snack').classList.add('active');
-            else if(cat === '牛排') document.getElementById('chip-steak').classList.add('active');
-            else if(cat === '日式料理') document.getElementById('chip-jp').classList.add('active');
-            else if(cat === '韓式料理') document.getElementById('chip-kr').classList.add('active');
-            else if(cat === '火鍋') document.getElementById('chip-hotpot').classList.add('active');
-            else if(cat === '炸物') document.getElementById('chip-fried').classList.add('active');
-            else if(cat === '居酒屋') document.getElementById('chip-izakaya').classList.add('active');
-
-            refreshSearch();
-        }
-
-        async function askCustomSearch() {
-            const { value: keyword } = await Swal.fire({ title: '想吃什麼？', input: 'text', showCancelButton: true });
-            if (keyword) {
-                currentCustomKeyword = keyword;
-                currentMode = 'custom';
-                document.getElementById('sub-categories').classList.add('hidden');
-                document.querySelectorAll('.filter-btn').forEach(btn => btn.className = "filter-btn px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 transition");
-                document.getElementById('btn-custom').className = "filter-btn theme-bg px-4 py-2 rounded-xl text-sm font-bold shadow-md transition";
-                
-                document.getElementById('keyword-badge').classList.remove('hidden');
-                document.getElementById('current-keyword-text').innerText = keyword;
-                
-                if(!currentUserLocation) getLocation(); else refreshSearch();
-            }
-        }
-
+        // --- Core Search Logic ---
         function getLocation() {
             if (!apiKey) { openApiKeySettings(); return; }
             if (!navigator.geolocation) { Swal.fire('錯誤', '不支援定位', 'error'); return; }
@@ -442,13 +430,15 @@
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     currentUserLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    fetchWeather(currentUserLocation.lat, currentUserLocation.lng);
                     fetchShops();
                 },
                 () => { document.getElementById('loading-screen').classList.add('hidden'); document.getElementById('start-screen').classList.remove('hidden'); }
             );
         }
 
-        function refreshSearch() {
+        function refreshSearch(force = false) {
+            if (force) apiCache = {}; // Clear cache on hard refresh
             if(!currentUserLocation) getLocation(); else fetchShops();
         }
 
@@ -457,13 +447,25 @@
             document.getElementById('results-list').classList.add('hidden');
             document.getElementById('fab-container').classList.add('hidden');
 
+            // Generate Cache Key
+            const cacheKey = `${currentMode}_${subCategory}_${currentCustomKeyword}_${currentRadius}_${currentUserLocation.lat.toFixed(4)}_${currentUserLocation.lng.toFixed(4)}`;
+            const now = Date.now();
+
+            // Check Cache (5 min validity)
+            if (apiCache[cacheKey] && (now - apiCache[cacheKey].timestamp < 300000)) {
+                console.log("Using Cached Data");
+                allFetchedShops = apiCache[cacheKey].data;
+                processAndRenderShops();
+                return;
+            }
+
             let request = {
                 location: currentUserLocation,
                 radius: currentRadius,
                 type: 'restaurant' 
             };
 
-            // Enhanced Keywords for v11
+            // Keyword Logic (v12 Optimized)
             if (currentMode === 'date') {
                 delete request.type;
                 request.keyword = '咖啡廳 OR 甜點 OR 下午茶 OR 蛋糕';
@@ -474,40 +476,57 @@
                 if (subCategory && subCategory !== 'all') {
                     if (subCategory === '日式料理') request.keyword = '日式料理 OR 壽司 OR 拉麵';
                     else if (subCategory === '韓式料理') request.keyword = '韓式料理 OR 韓式烤肉 OR 泡菜';
-                    else if (subCategory === '手搖') request.keyword = '手搖飲料 OR 珍珠奶茶';
+                    else if (subCategory === '手搖') {
+                        delete request.type; // Important: removing generic type to rely on keyword
+                        request.keyword = '手搖飲料 OR 珍珠奶茶 OR 飲料店';
+                    }
                     else request.keyword = subCategory;
                 }
             }
 
             placesService.nearbySearch(request, (results, status) => {
                 if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    // Save to Cache
+                    // Note: Google objects have internal state, mapping needed if using advanced features later, 
+                    // but for basic display keeping results array is ok for this session.
+                    apiCache[cacheKey] = { timestamp: now, data: results };
+                    sessionStorage.setItem('apiCache', JSON.stringify(apiCache));
+                    
                     allFetchedShops = results;
                     processAndRenderShops();
                 } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                    document.getElementById('loading-screen').classList.add('hidden');
-                    document.getElementById('results-list').classList.remove('hidden');
-                    document.getElementById('results-list').innerHTML = `<div class="text-center mt-10 text-gray-400">找不到店家，請嘗試拉大範圍</div>`;
+                    showError("找不到店家，請嘗試拉大範圍");
                 } else {
-                    document.getElementById('loading-screen').classList.add('hidden');
-                    document.getElementById('results-list').classList.remove('hidden');
-                    document.getElementById('results-list').innerHTML = `<div class="text-center mt-10 text-gray-400">發生錯誤 (${status})</div>`;
+                    showError(`發生錯誤 (${status})`);
                 }
             });
         }
 
         function processAndRenderShops() {
             let filtered = allFetchedShops.filter(shop => {
-                // Open Now Filter
+                // 1. Open Now
                 if (onlyOpenNow) {
                     if (!shop.opening_hours || !shop.opening_hours.open_now) return false;
                 }
                 
-                // Strict Drink Filter (Exclude Cafes)
+                // 2. Budget
+                if (selectedBudget > 0) {
+                    if (!shop.price_level || shop.price_level > selectedBudget) return false;
+                }
+
+                // 3. Strict Bubble Tea Filter
                 if (currentMode === 'restaurant' && subCategory === '手搖') {
-                    const isCafe = shop.types.includes('cafe');
-                    const nameHasTea = shop.name.includes('茶') || shop.name.includes('飲');
-                    // If it's classified as a cafe AND name doesn't imply tea/drink shop clearly, exclude it.
-                    if (isCafe && !nameHasTea) return false;
+                    const name = shop.name.toLowerCase();
+                    const badKeywords = ['starbucks', 'louisa', 'cama', 'coffee', '咖啡', '伯朗'];
+                    const goodKeywords = ['茶', '飲', '凍', '吸', 'tea', 'beverage', '50嵐', 'coco', '清心', '可不可'];
+                    
+                    // If name has bad keyword, drop it immediately
+                    if (badKeywords.some(bad => name.includes(bad))) return false;
+                    
+                    // If it's tagged as cafe AND doesn't have good keyword, drop it
+                    if (shop.types.includes('cafe')) {
+                        if (!goodKeywords.some(good => name.includes(good))) return false;
+                    }
                 }
 
                 return true;
@@ -543,9 +562,11 @@
                 return;
             }
 
-            displayedShops.forEach(shop => {
+            displayedShops.forEach((shop, index) => {
                 const card = document.createElement('div');
-                card.className = 'bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm mx-4 mb-3 flex items-start gap-3 cursor-pointer card-anim border border-gray-100 dark:border-gray-700 hover:border-blue-300 relative';
+                // Waterfall animation delay
+                card.style.animationDelay = `${index * 0.05}s`;
+                card.className = 'bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm mx-4 mb-3 flex items-start gap-3 cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-blue-300 relative card-anim animate-fade-in-up opacity-0';
                 
                 let photoUrl = 'https://via.placeholder.com/80?text=Food';
                 if (shop.photos && shop.photos.length > 0) photoUrl = shop.photos[0].getUrl({maxWidth:200, maxHeight:200});
@@ -554,16 +575,14 @@
                 const rating = shop.rating ? `<span class="text-orange-400 font-bold text-xs"><i class="fa-solid fa-star"></i> ${shop.rating}</span>` : '<span class="text-xs text-gray-400">無評分</span>';
                 
                 let typeIcon = '';
-                if(subCategory === '日式料理' || shop.name.includes('壽司') || shop.name.includes('日式')) typeIcon = '🍱 ';
-                else if(subCategory === '韓式料理' || shop.name.includes('韓')) typeIcon = '🥘 ';
+                if(subCategory === '手搖') typeIcon = '🥤 ';
+                else if(subCategory === '日式料理' || shop.name.includes('壽司')) typeIcon = '🍱 ';
                 else if(subCategory === '牛排') typeIcon = '🥩 ';
                 else if(subCategory === '小吃') typeIcon = '🍢 ';
-                else if(subCategory === '手搖') typeIcon = '🥤 ';
                 
                 const isOpen = shop.opening_hours ? shop.opening_hours.open_now : null;
                 const statusColor = isOpen === true ? 'bg-green-500' : (isOpen === false ? 'bg-red-500' : 'bg-gray-400');
-                
-                let favHtml = shop.isFav ? `<i class="fa-solid fa-heart theme-text absolute top-3 right-3 text-lg drop-shadow-sm animate-pulse"></i>` : '';
+                let favHtml = shop.isFav ? `<i class="fa-solid fa-heart theme-text absolute top-3 right-3 text-lg drop-shadow-sm"></i>` : '';
                 
                 card.innerHTML = `
                     <div class="relative">
@@ -595,7 +614,133 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // --- Modal ---
+        // --- Budget Filter ---
+        function toggleBudgetFilter() {
+            const dropdown = document.getElementById('budget-dropdown');
+            dropdown.classList.toggle('hidden');
+        }
+        function setBudget(level) {
+            selectedBudget = level;
+            document.querySelectorAll('.budget-chip').forEach((el, idx) => {
+                if (idx === level) el.classList.add('active'); else el.classList.remove('active');
+            });
+            document.getElementById('btn-budget').innerHTML = `預算 ${level===0?'': '$'.repeat(level)} <i class="fa-solid fa-chevron-down"></i>`;
+            if(allFetchedShops.length > 0) processAndRenderShops();
+        }
+
+        // --- Slot Machine (New) ---
+        function openSlotMachine() {
+            if(displayedShops.length === 0) return;
+            document.getElementById('slot-modal').classList.remove('hidden');
+            
+            // Build Strip
+            const strip = document.getElementById('slot-strip');
+            strip.innerHTML = '';
+            // Duplicate list 3 times for scrolling effect
+            const list = [...displayedShops, ...displayedShops, ...displayedShops];
+            list.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'slot-item font-bold text-gray-800';
+                div.innerText = s.name.substring(0, 6);
+                strip.appendChild(div);
+            });
+            strip.style.transform = 'translateY(0px)';
+            document.getElementById('slot-msg').innerText = "拉動拉桿來決定！";
+        }
+        
+        function spinSlot() {
+            if(isSpinning) return; isSpinning = true;
+            document.getElementById('slot-msg').innerText = "運氣旋轉中...";
+            
+            const strip = document.getElementById('slot-strip');
+            const winnerIdx = Math.floor(Math.random() * displayedShops.length);
+            const itemHeight = 100;
+            // Calculate position: Land on the 2nd set of items + winner index
+            const targetY = -((displayedShops.length * itemHeight) + (winnerIdx * itemHeight));
+            
+            strip.style.transition = 'transform 3s cubic-bezier(0.25, 1, 0.5, 1)';
+            strip.style.transform = `translateY(${targetY}px)`;
+            
+            setTimeout(() => {
+                isSpinning = false;
+                selectedShop = displayedShops[winnerIdx];
+                closeSlot();
+                openModal();
+            }, 3500);
+        }
+        function closeSlot() { document.getElementById('slot-modal').classList.add('hidden'); }
+
+        // --- Party / Voting (Firebase) ---
+        async function setupFirebase() {
+            const { value: configStr } = await Swal.fire({
+                title: 'Firebase Config',
+                input: 'textarea',
+                inputLabel: '請貼上 Firebase Config JSON',
+                inputPlaceholder: '{ apiKey: "...", ... }',
+                showCancelButton: true
+            });
+            if(configStr) {
+                try {
+                    // Try to parse relaxed JSON (standard firebase config copy is JS object, user might need to fix quotes)
+                    // We'll assume user pastes valid JSON or key-value object string.
+                    // For simplicity, just saving string and alerting user they need valid JSON.
+                    const config = JSON.parse(configStr.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2": ')); 
+                    localStorage.setItem('firebaseConfig', JSON.stringify(config));
+                    location.reload();
+                } catch(e) { Swal.fire('格式錯誤', '請確保是有效的 JSON 格式', 'error'); }
+            }
+        }
+
+        // --- UI Modes & Subcats ---
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('keyword-badge').classList.add('hidden');
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.className = "filter-btn px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 transition transform active:scale-95";
+            });
+            if (mode !== 'custom') {
+                document.getElementById(`btn-${mode}`).className = "filter-btn theme-bg px-4 py-2 rounded-xl text-sm font-bold shadow-md transition transform active:scale-95";
+            }
+            if (mode === 'restaurant') {
+                document.getElementById('sub-categories').classList.remove('hidden');
+            } else {
+                document.getElementById('sub-categories').classList.add('hidden');
+                subCategory = 'all';
+            }
+            if (currentUserLocation) refreshSearch(); else getLocation();
+        }
+
+        function setSubCategory(cat) {
+            subCategory = cat;
+            const chips = document.getElementById('sub-categories').querySelectorAll('button');
+            chips.forEach(c => c.classList.remove('active'));
+            if(cat === 'all') document.getElementById('chip-all').classList.add('active');
+            else if(cat === '手搖') document.getElementById('chip-drink').classList.add('active');
+            else if(cat === '小吃') document.getElementById('chip-snack').classList.add('active');
+            else if(cat === '牛排') document.getElementById('chip-steak').classList.add('active');
+            else if(cat === '日式料理') document.getElementById('chip-jp').classList.add('active');
+            else if(cat === '韓式料理') document.getElementById('chip-kr').classList.add('active');
+            else if(cat === '火鍋') document.getElementById('chip-hotpot').classList.add('active');
+            else if(cat === '炸物') document.getElementById('chip-fried').classList.add('active');
+            else if(cat === '居酒屋') document.getElementById('chip-izakaya').classList.add('active');
+            refreshSearch();
+        }
+
+        async function askCustomSearch() {
+            const { value: keyword } = await Swal.fire({ title: '想吃什麼？', input: 'text', showCancelButton: true });
+            if (keyword) {
+                currentCustomKeyword = keyword;
+                currentMode = 'custom';
+                document.getElementById('sub-categories').classList.add('hidden');
+                document.querySelectorAll('.filter-btn').forEach(btn => btn.className = "filter-btn px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 transition");
+                document.getElementById('btn-custom').className = "filter-btn theme-bg px-4 py-2 rounded-xl text-sm font-bold shadow-md transition";
+                document.getElementById('keyword-badge').classList.remove('hidden');
+                document.getElementById('current-keyword-text').innerText = keyword;
+                if(!currentUserLocation) getLocation(); else refreshSearch();
+            }
+        }
+
+        // --- Detail Modal ---
         function openModal() {
             if(!selectedShop) return;
             document.getElementById('modal-shop-name').innerText = selectedShop.name;
@@ -640,42 +785,35 @@
                 } else { document.getElementById('modal-hours-text').innerText = "無法取得詳細時段"; }
             });
         }
-        function closeModal() {
-            document.getElementById('modal-content').classList.add('scale-95', 'opacity-0');
-            setTimeout(() => document.getElementById('modal').classList.add('hidden'), 200);
-        }
-        function openGoogleMapsNav() {
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShop.name)}&query_place_id=${selectedShop.place_id}`, '_blank');
-        }
-        
-        function searchDelivery(platform) {
-            const name = encodeURIComponent(selectedShop.name);
-            let url = '';
-            if (platform === 'ubereats') {
-                url = `https://www.ubereats.com/tw/search?q=${name}`;
-            }
-            window.open(url, '_blank');
-        }
+        function closeModal() { document.getElementById('modal-content').classList.add('scale-95', 'opacity-0'); setTimeout(() => document.getElementById('modal').classList.add('hidden'), 200); }
+        function openGoogleMapsNav() { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShop.name)}&query_place_id=${selectedShop.place_id}`, '_blank'); }
+        function searchDelivery(platform) { const name = encodeURIComponent(selectedShop.name); let url = `https://www.ubereats.com/tw/search?q=${name}`; window.open(url, '_blank'); }
+        function showError(t) { document.getElementById('loading-screen').classList.add('hidden'); document.getElementById('results-list').classList.remove('hidden'); document.getElementById('results-list').innerHTML = `<div class="text-center mt-10 text-gray-400">${t}</div>`; }
 
+        // --- Other Features ---
+        function openSettings() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        function openThemePicker() { document.getElementById('theme-modal').classList.remove('hidden'); }
+        function closeThemePicker() { document.getElementById('theme-modal').classList.add('hidden'); }
+        function changeTheme(c, l) { applyTheme(c, l); closeThemePicker(); }
+        function openPartyMode() { 
+            if(!firebaseConfig) { Swal.fire('功能未啟用', '請先在設定中輸入 Firebase Config', 'info'); return; }
+            document.getElementById('party-modal').classList.remove('hidden'); 
+        }
+        function closeParty() { document.getElementById('party-modal').classList.add('hidden'); }
+        
         // --- Favorites ---
         function updateFavBtnState() {
             const btn = document.getElementById('btn-toggle-fav');
             const isFav = myFavorites.some(f => f.place_id === selectedShop.place_id);
-            if(isFav) {
-                btn.innerHTML = `<i class="fa-solid fa-heart theme-text mr-1"></i> 已在最愛`;
-                btn.className = "col-span-2 py-3 theme-bg-light rounded-xl font-bold transition border theme-border";
-            } else {
-                btn.innerHTML = `<i class="fa-regular fa-heart mr-1"></i> 加入最愛`;
-                btn.className = "col-span-2 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition";
-            }
+            if(isFav) { btn.innerHTML = `<i class="fa-solid fa-heart theme-text mr-1"></i> 已在最愛`; btn.classList.add('theme-bg-light', 'theme-border'); } 
+            else { btn.innerHTML = `<i class="fa-regular fa-heart mr-1"></i> 加入最愛`; btn.classList.remove('theme-bg-light', 'theme-border'); }
         }
         function toggleFavorite() {
             const idx = myFavorites.findIndex(f => f.place_id === selectedShop.place_id);
             if (idx >= 0) { myFavorites.splice(idx, 1); Swal.fire({ icon: 'success', title: '已移除', timer: 800, showConfirmButton: false }); } 
             else { myFavorites.unshift({ place_id: selectedShop.place_id, name: selectedShop.name, vicinity: selectedShop.vicinity, rating: 0 }); Swal.fire({ icon: 'success', title: '已加入最愛！', timer: 800, showConfirmButton: false }); }
             localStorage.setItem('myFavorites', JSON.stringify(myFavorites));
-            updateFavBtnState();
-            if(currentUserLocation) processAndRenderShops();
+            updateFavBtnState(); if(currentUserLocation) processAndRenderShops();
         }
         function openFavorites() {
             const list = document.getElementById('fav-list'); list.innerHTML = '';
@@ -690,29 +828,6 @@
         function removeFavorite(index) { myFavorites.splice(index, 1); localStorage.setItem('myFavorites', JSON.stringify(myFavorites)); openFavorites(); if(currentUserLocation) processAndRenderShops(); }
         function closeFavorites() { document.getElementById('fav-modal').classList.add('translate-y-full'); setTimeout(()=>document.getElementById('fav-modal').classList.add('hidden'), 300); }
         function clearFavorites() { if(confirm("清空？")) { myFavorites=[]; localStorage.setItem('myFavorites','[]'); openFavorites(); processAndRenderShops(); } }
-
-        // --- Wheel ---
-        function openWheel() { if(displayedShops.length===0) return; document.getElementById('wheel-modal').classList.remove('hidden'); drawWheel(displayedShops); wheelCanvas.onclick = () => spinWheel(displayedShops); }
-        function closeWheel() { document.getElementById('wheel-modal').classList.add('hidden'); }
-        function drawWheel(data) {
-             const count = data.length; const arc = (2*Math.PI)/count; const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#FF9F43', '#54A0FF', '#5F27CD', '#FD79A8'];
-             wheelCtx.clearRect(0,0,320,320); wheelCtx.save(); wheelCtx.translate(160,160); wheelCtx.rotate(currentRotation);
-             for(let i=0; i<count; i++){
-                 const angle = i*arc; wheelCtx.beginPath(); wheelCtx.fillStyle = colors[i%colors.length];
-                 wheelCtx.moveTo(0,0); wheelCtx.arc(0,0,150,angle, angle+arc); wheelCtx.fill();
-                 wheelCtx.save(); wheelCtx.translate(Math.cos(angle+arc/2)*100, Math.sin(angle+arc/2)*100);
-                 wheelCtx.rotate(angle+arc/2+Math.PI/2); wheelCtx.fillStyle="#fff"; wheelCtx.font="bold 12px Arial";
-                 let text = data[i].name.substring(0,5); wheelCtx.fillText(text, -wheelCtx.measureText(text).width/2, 0); wheelCtx.restore();
-             }
-             wheelCtx.restore();
-        }
-        function spinWheel(data) {
-            if(isSpinning) return; isSpinning=true; document.getElementById('wheel-msg').innerText="命運轉動中...";
-            const winnerIdx = Math.floor(Math.random()*data.length); const arc = 2*Math.PI/data.length; const spins = 5+Math.random()*5;
-            const targetRot = (spins*2*Math.PI) - ((winnerIdx*arc)+(arc/2)) - (Math.PI/2); let start=null; 
-            function anim(ts) { if(!start) start=ts; const p=Math.min((ts-start)/4000,1); const ease=1-Math.pow(1-p,3); currentRotation = targetRot*ease; drawWheel(data); if(p<1) requestAnimationFrame(anim); else { isSpinning=false; closeWheel(); selectedShop=data[winnerIdx]; openModal(); } }
-            requestAnimationFrame(anim);
-        }
         function shareShop() { const t = `今天吃: ${selectedShop.name} https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShop.name)}`; navigator.clipboard.writeText(t).then(()=>Swal.fire({ icon:'success', title:'已複製', timer:800, showConfirmButton:false })); }
     </script>
 </body>
