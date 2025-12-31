@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>今天吃什麼？v9.0 (自訂主題版)</title>
+    <title>今天吃什麼？v10.0 (外送連動版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,7 +13,7 @@
             theme: {
                 extend: {
                     colors: {
-                        gray: { 900: '#111827', 800: '#1F2937', 700: '#374151' } // Smooth dark mode
+                        gray: { 900: '#111827', 800: '#1F2937', 700: '#374151' }
                     }
                 }
             }
@@ -28,11 +28,10 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
-        /* --- CSS Variables for Dynamic Theming --- */
+        /* CSS Variables */
         :root {
-            --primary: #3B82F6; /* Default Blue */
+            --primary: #3B82F6;
             --primary-light: #EFF6FF;
-            --primary-hover: #2563EB;
             --text-on-primary: #ffffff;
         }
 
@@ -42,11 +41,9 @@
             transition: background-color 0.3s, color 0.3s;
         }
         
-        /* Utility classes using CSS variables */
         .theme-bg { background-color: var(--primary) !important; color: var(--text-on-primary) !important; }
         .theme-text { color: var(--primary) !important; }
         .theme-border { border-color: var(--primary) !important; }
-        .theme-ring:focus { ring-color: var(--primary) !important; }
         .theme-accent { accent-color: var(--primary) !important; }
         .theme-bg-light { background-color: var(--primary-light) !important; color: var(--primary) !important; }
 
@@ -62,40 +59,25 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Toggle Switch */
         .toggle-checkbox:checked { right: 0; border-color: var(--primary); }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--primary); }
         
-        /* Chip Styling */
         .chip {
             transition: all 0.2s; white-space: nowrap;
             border: 1px solid #E5E7EB;
             background-color: white;
             color: #4B5563;
         }
-        .dark .chip {
-            background-color: #1F2937;
-            border-color: #374151;
-            color: #D1D5DB;
-        }
+        .dark .chip { background-color: #1F2937; border-color: #374151; color: #D1D5DB; }
         .chip.active {
-            background-color: var(--primary-light);
-            color: var(--primary);
-            border-color: var(--primary);
-            font-weight: 700;
+            background-color: var(--primary-light); color: var(--primary); border-color: var(--primary); font-weight: 700;
         }
-        .dark .chip.active {
-            background-color: var(--primary); /* In dark mode, fill it solid */
-            color: white;
-        }
+        .dark .chip.active { background-color: var(--primary); color: white; }
 
         #mini-map { width: 100%; height: 180px; background-color: #eee; border-radius: 0.75rem; margin-bottom: 1rem; }
         .photo-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 0.75rem; }
-        
         .card-anim { transition: transform 0.1s, box-shadow 0.1s; }
         .card-anim:active { transform: scale(0.97); }
-
-        /* Color Picker Dot */
         .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
         .color-dot.selected { border-color: #374151; transform: scale(1.1); }
         .dark .color-dot.selected { border-color: white; }
@@ -149,7 +131,6 @@
                 </label>
             </div>
             
-            <!-- Dynamic Color Slider -->
             <input type="range" id="distance-range" min="100" max="2000" step="100" value="500" 
                    class="theme-accent w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer">
         </div>
@@ -170,6 +151,7 @@
         <!-- Sub Categories (Chips) -->
         <div id="sub-categories" class="px-4 flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide pb-2 mt-1">
             <button onclick="setSubCategory('all')" id="chip-all" class="chip active px-3 py-1.5 rounded-full text-xs font-medium">全部</button>
+            <button onclick="setSubCategory('手搖')" id="chip-drink" class="chip px-3 py-1.5 rounded-full text-xs font-medium">🥤 手搖</button>
             <button onclick="setSubCategory('小吃')" id="chip-snack" class="chip px-3 py-1.5 rounded-full text-xs font-medium">🍢 小吃</button>
             <button onclick="setSubCategory('牛排')" id="chip-steak" class="chip px-3 py-1.5 rounded-full text-xs font-medium">🥩 牛排</button>
             <button onclick="setSubCategory('日式料理')" id="chip-jp" class="chip px-3 py-1.5 rounded-full text-xs font-medium">🍱 日式</button>
@@ -197,11 +179,10 @@
                 <div class="theme-bg-light w-28 h-28 rounded-full flex items-center justify-center animate-bounce shadow-inner">
                     <i class="fa-solid fa-utensils text-4xl theme-text"></i>
                 </div>
-                <!-- Custom pulse circle needs manual color in style tag or JS, hard to do with pure utility classes, keeping simple -->
             </div>
             <div>
                 <h2 class="text-xl font-bold text-gray-800 dark:text-white">今天吃什麼？</h2>
-                <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm px-8">隨機精選 20 家好店<br>設定好距離，馬上開吃！</p>
+                <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm px-8">隨機精選 20 家好店<br>解決你的選擇困難</p>
                 <p id="api-status" class="text-xs text-red-500 mt-2 font-bold hidden bg-red-50 px-2 py-1 rounded inline-block">⚠️ 請先設定 API Key</p>
             </div>
             <button onclick="getLocation()" class="theme-bg hover:opacity-90 text-white font-bold py-3.5 px-10 rounded-2xl shadow-lg transform transition active:scale-95 flex items-center text-lg">
@@ -232,15 +213,10 @@
         <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl w-full max-w-xs transform scale-100">
             <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4 text-center">選擇主題色</h3>
             <div class="flex justify-center gap-4 mb-6">
-                <!-- Blue -->
                 <div onclick="changeTheme('#3B82F6', '#EFF6FF')" class="color-dot bg-blue-500" title="晨晨藍"></div>
-                <!-- Orange -->
                 <div onclick="changeTheme('#F97316', '#FFF7ED')" class="color-dot bg-orange-500" title="食慾橘"></div>
-                <!-- Pink -->
                 <div onclick="changeTheme('#EC4899', '#FDF2F8')" class="color-dot bg-pink-500" title="棠棠粉"></div>
-                <!-- Green -->
                 <div onclick="changeTheme('#10B981', '#ECFDF5')" class="color-dot bg-emerald-500" title="清新綠"></div>
-                <!-- Purple -->
                 <div onclick="changeTheme('#8B5CF6', '#F5F3FF')" class="color-dot bg-violet-500" title="夜貓紫"></div>
             </div>
             <button onclick="closeThemePicker()" class="w-full py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold">關閉</button>
@@ -278,6 +254,16 @@
                 <div id="modal-hours-container" class="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm border border-gray-100 dark:border-gray-700">
                     <div class="font-bold mb-1 flex items-center theme-text"><i class="fa-regular fa-clock mr-2"></i> <span id="modal-hours-title">營業時間</span></div>
                     <div id="modal-hours-text" class="pl-6 text-gray-500 dark:text-gray-300">讀取中...</div>
+                </div>
+                
+                <!-- Delivery Links (New) -->
+                <div class="flex gap-2 mb-4">
+                     <button onclick="searchDelivery('foodpanda')" class="flex-1 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold flex items-center justify-center transition">
+                         <span class="mr-1">🐼</span> 搜 Foodpanda
+                     </button>
+                     <button onclick="searchDelivery('ubereats')" class="flex-1 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white text-xs font-bold flex items-center justify-center transition">
+                         <span class="mr-1">🚲</span> 搜 UberEats
+                     </button>
                 </div>
 
                 <p id="modal-shop-vicinity" class="text-xs text-gray-400 mb-4 truncate">地址資訊</p>
@@ -319,21 +305,12 @@
         function applyTheme(color, bgLight) {
             document.documentElement.style.setProperty('--primary', color);
             document.documentElement.style.setProperty('--primary-light', bgLight);
-            
-            // Re-render color dots
-            document.querySelectorAll('.color-dot').forEach(dot => {
-                dot.classList.remove('selected');
-                // Simple RGB comparison or just rely on click
-            });
             localStorage.setItem('themeColor', color);
             localStorage.setItem('themeBg', bgLight);
         }
-        
         function openThemePicker() { document.getElementById('theme-modal').classList.remove('hidden'); }
         function closeThemePicker() { document.getElementById('theme-modal').classList.add('hidden'); }
         function changeTheme(c, l) { applyTheme(c, l); closeThemePicker(); }
-
-        // Init Theme
         const savedColor = localStorage.getItem('themeColor');
         const savedBg = localStorage.getItem('themeBg');
         if(savedColor) applyTheme(savedColor, savedBg);
@@ -352,19 +329,15 @@
         let myFavorites = JSON.parse(localStorage.getItem('myFavorites')) || [];
         let apiKey = localStorage.getItem('googleMapsApiKey') || '';
         let scriptLoaded = false;
-        
-        // Wheel Vars
         let wheelCanvas = document.getElementById('wheel-canvas');
         let wheelCtx = wheelCanvas.getContext('2d');
         let isSpinning = false;
         let currentRotation = 0;
 
-        // Init
         document.getElementById('date-display').innerText = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' });
         if(!apiKey) document.getElementById('api-status').classList.remove('hidden');
         else loadGoogleMapsScript();
 
-        // --- Distance Logic ---
         const distRange = document.getElementById('distance-range');
         const rangeVal = document.getElementById('range-value');
         
@@ -374,7 +347,6 @@
         });
         distRange.addEventListener('change', () => { if(currentUserLocation) refreshSearch(); });
 
-        // --- API Key ---
         async function openApiKeySettings() {
             const { value: key } = await Swal.fire({ title: '設定 API Key', input: 'text', inputValue: apiKey, showCancelButton: true });
             if (key) { apiKey = key; localStorage.setItem('googleMapsApiKey', apiKey); location.reload(); }
@@ -388,15 +360,12 @@
             document.head.appendChild(script);
         }
 
-        // --- Toggles & Modes ---
         function toggleOpenNow() {
             onlyOpenNow = document.getElementById('open-now-toggle').checked;
             const dot = document.getElementById('toggle-dot');
             const bg = document.querySelector('.toggle-bg');
             if (onlyOpenNow) {
                 dot.classList.add('translate-x-4');
-                bg.classList.remove('bg-gray-200', 'dark:bg-gray-600');
-                bg.classList.add('bg-blue-500'); // Force blue for toggle or use theme var via JS? kept blue for standard UI
                 bg.style.backgroundColor = 'var(--primary)';
             } else {
                 dot.classList.remove('translate-x-4');
@@ -410,7 +379,6 @@
             currentMode = mode;
             document.getElementById('keyword-badge').classList.add('hidden');
             
-            // Reset Buttons
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.className = "filter-btn px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 transition transform active:scale-95";
             });
@@ -419,7 +387,6 @@
                 document.getElementById(`btn-${mode}`).className = "filter-btn theme-bg px-4 py-2 rounded-xl text-sm font-bold shadow-md transition transform active:scale-95";
             }
 
-            // Sub Categories visibility
             if (mode === 'restaurant') {
                 document.getElementById('sub-categories').classList.remove('hidden');
             } else {
@@ -433,12 +400,10 @@
         function setSubCategory(cat) {
             subCategory = cat;
             const chips = document.getElementById('sub-categories').querySelectorAll('button');
-            chips.forEach(c => {
-                c.classList.remove('active');
-            });
-            // Try to find the button that was clicked or matches the category
-            // Simplified matching:
+            chips.forEach(c => c.classList.remove('active'));
+            
             if(cat === 'all') document.getElementById('chip-all').classList.add('active');
+            else if(cat === '手搖') document.getElementById('chip-drink').classList.add('active');
             else if(cat === '小吃') document.getElementById('chip-snack').classList.add('active');
             else if(cat === '牛排') document.getElementById('chip-steak').classList.add('active');
             else if(cat === '日式料理') document.getElementById('chip-jp').classList.add('active');
@@ -501,9 +466,10 @@
                 type: 'restaurant' 
             };
 
+            // FIX: Use keyword for multiple types to avoid API array issues
             if (currentMode === 'date') {
-                request.type = ['cafe', 'bakery'];
-                request.keyword = '甜點 OR 下午茶 OR 蛋糕 OR 咖啡廳';
+                delete request.type;
+                request.keyword = '咖啡廳 OR 甜點 OR 下午茶 OR 蛋糕';
             } else if (currentMode === 'custom') {
                 request.keyword = currentCustomKeyword;
                 delete request.type;
@@ -511,6 +477,7 @@
                 if (subCategory && subCategory !== 'all') {
                     if (subCategory === '日式料理') request.keyword = '日式料理 OR 壽司 OR 拉麵';
                     else if (subCategory === '韓式料理') request.keyword = '韓式料理 OR 韓式烤肉 OR 泡菜';
+                    else if (subCategory === '手搖') request.keyword = '手搖飲料 OR 珍珠奶茶 OR 飲料店';
                     else request.keyword = subCategory;
                 }
             }
@@ -520,17 +487,9 @@
                     allFetchedShops = results;
                     processAndRenderShops();
                 } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                    // Retry with broader radius if user set it too small, or just show empty
-                    if(currentRadius < 1000) {
-                        // Optional: auto expand? For now just show message.
-                        document.getElementById('loading-screen').classList.add('hidden');
-                        document.getElementById('results-list').classList.remove('hidden');
-                        document.getElementById('results-list').innerHTML = `<div class="text-center mt-10 text-gray-400">目前範圍 ${currentRadius}m 找不到店家<br>請嘗試拉大距離</div>`;
-                    } else {
-                         document.getElementById('loading-screen').classList.add('hidden');
-                         document.getElementById('results-list').classList.remove('hidden');
-                         document.getElementById('results-list').innerHTML = `<div class="text-center mt-10 text-gray-400">附近沒有找到符合的店家</div>`;
-                    }
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('results-list').classList.remove('hidden');
+                    document.getElementById('results-list').innerHTML = `<div class="text-center mt-10 text-gray-400">找不到店家，請嘗試拉大範圍</div>`;
                 } else {
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('results-list').classList.remove('hidden');
@@ -549,7 +508,6 @@
                 const dist = calculateDistance(currentUserLocation.lat, currentUserLocation.lng, shop.geometry.location.lat(), shop.geometry.location.lng());
                 shop.distanceText = dist < 1000 ? `${Math.round(dist)} m` : `${(dist/1000).toFixed(1)} km`;
                 shop.isFav = myFavorites.some(fav => fav.place_id === shop.place_id);
-                // Simple price estimation
                 shop.priceSymbol = shop.price_level ? '💰'.repeat(shop.price_level) : '';
                 return shop;
             });
@@ -587,12 +545,11 @@
                 const rating = shop.rating ? `<span class="text-orange-400 font-bold text-xs"><i class="fa-solid fa-star"></i> ${shop.rating}</span>` : '<span class="text-xs text-gray-400">無評分</span>';
                 
                 let typeIcon = '';
-                // Distinct icons for JP/KR vs others based on logic
-                // Using names because Google Types are generic 'restaurant' often
                 if(subCategory === '日式料理' || shop.name.includes('壽司') || shop.name.includes('日式')) typeIcon = '🍱 ';
                 else if(subCategory === '韓式料理' || shop.name.includes('韓')) typeIcon = '🥘 ';
                 else if(subCategory === '牛排') typeIcon = '🥩 ';
                 else if(subCategory === '小吃') typeIcon = '🍢 ';
+                else if(subCategory === '手搖') typeIcon = '🥤 ';
                 
                 const isOpen = shop.opening_hours ? shop.opening_hours.open_now : null;
                 const statusColor = isOpen === true ? 'bg-green-500' : (isOpen === false ? 'bg-red-500' : 'bg-gray-400');
@@ -680,6 +637,17 @@
         }
         function openGoogleMapsNav() {
             window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShop.name)}&query_place_id=${selectedShop.place_id}`, '_blank');
+        }
+        
+        function searchDelivery(platform) {
+            const name = encodeURIComponent(selectedShop.name);
+            let url = '';
+            if (platform === 'foodpanda') {
+                url = `https://www.foodpanda.com.tw/restaurants?q=${name}`;
+            } else if (platform === 'ubereats') {
+                url = `https://www.ubereats.com/tw/search?q=${name}`;
+            }
+            window.open(url, '_blank');
         }
 
         // --- Favorites ---
